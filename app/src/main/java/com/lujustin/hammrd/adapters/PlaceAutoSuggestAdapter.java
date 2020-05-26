@@ -6,25 +6,30 @@ import android.widget.Filter;
 import android.widget.Filterable;
 
 import com.lujustin.hammrd.R;
-import com.lujustin.hammrd.models.PlaceApi;
+import com.lujustin.hammrd.models.PlaceAutoSuggestService;
+import com.lujustin.hammrd.models.PlaceAutoSuggestionList;
 
+import java.io.IOException;
 import java.util.ArrayList;
+
+import retrofit2.Call;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable {
 
-    ArrayList<String> results;
 
-    int resource;
-    Context context;
 
-    PlaceApi placeApi;
+    private ArrayList<String> results;
+
+    private int resource;
+    private Context context;
+    private final String baseURL = "https://maps.googleapis.com/maps/api/";
 
     public PlaceAutoSuggestAdapter(Context context, int resId) {
         super(context, resId);
         this.context = context;
         this.resource = resId;
-
-        this.placeApi = new PlaceApi(context.getString(R.string.GOOGLE_API_KEY));
     }
 
     @Override
@@ -37,6 +42,25 @@ public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable 
         return results.get(pos);
     }
 
+    private Call<PlaceAutoSuggestionList> getPlaceSuggestions(String input) {
+        Call<PlaceAutoSuggestionList> placeSuggestionsCall = null;
+        Retrofit retrofit = new Retrofit.Builder().baseUrl(baseURL)
+                                                .addConverterFactory(GsonConverterFactory.create())
+                                                .build();
+
+        PlaceAutoSuggestService placeAutoSuggestService = retrofit.create(PlaceAutoSuggestService.class);
+
+        try {
+            String apiKey = context.getString(R.string.GOOGLE_API_KEY);
+            placeSuggestionsCall = placeAutoSuggestService.getAutocompleteSuggestions(apiKey, input);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return placeSuggestionsCall;
+    }
+
     @Override
     public Filter getFilter() {
         final Filter filter = new Filter() {
@@ -44,10 +68,18 @@ public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable 
             protected FilterResults performFiltering(CharSequence constraint) {
                 FilterResults filterResults = new FilterResults();
                 if (constraint != null) {
-                    results = placeApi.autoComplete(constraint.toString());
-
-                    filterResults.values = results;
-                    filterResults.count = results.size();
+                    try {
+                        //this is executed on a background thread, we can use blocking operations
+                        results = getPlaceSuggestions(constraint.toString())
+                                .execute()
+                                .body()
+                                .getDescriptionList();
+                        filterResults.values = results;
+                        filterResults.count = results.size();
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
                 return filterResults;
             }
