@@ -70,6 +70,8 @@ public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable 
                 if (constraint != null) {
                     try {
                         //this is executed on a background thread, we can use blocking operations
+                        //add a delay of 1000 ms
+                        Thread.sleep(1000);
                         results = getPlaceSuggestions(constraint.toString())
                                 .execute()
                                 .body()
@@ -77,7 +79,7 @@ public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable 
                         filterResults.values = results;
                         filterResults.count = results.size();
                     }
-                    catch (IOException e) {
+                    catch (IOException | InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
