@@ -49,6 +49,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION_DENIED = 0;
 
+    private LoadingActivity loadingActivity;
     private NearestOpenRestaurant restaurant;
 
     //CURRENT IDEA!
@@ -59,6 +60,8 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         setContentView(R.layout.activity_get_food);
         getLocationPermission();
@@ -170,6 +173,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
             if (mapFragment != null) {
                 mapFragment.getMapAsync(GetFood.this);
             }
+            loadingActivity.dismissDialog();
         }, e -> e.printStackTrace());
 
     }
