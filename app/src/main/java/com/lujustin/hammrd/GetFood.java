@@ -24,7 +24,7 @@ import com.google.android.gms.tasks.Tasks;
 
 import com.lujustin.hammrd.models.NearestOpenRestaurant;
 import com.lujustin.hammrd.models.NearestOpenRestaurantList;
-import com.lujustin.hammrd.models.NearestOpenRestaurantService;
+import com.lujustin.hammrd.models.MapsApiService;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
@@ -88,12 +88,12 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();
 
-            NearestOpenRestaurantService nearestOpenRestaurantService =
-                    retrofit.create(NearestOpenRestaurantService.class);
+            MapsApiService mapsApiService =
+                    retrofit.create(MapsApiService.class);
 
             Log.d(TAG, latlngString);
             try {
-                Response<NearestOpenRestaurantList> response = nearestOpenRestaurantService.getNearestOpenRestaurant(apiKey, latlngString)
+                Response<NearestOpenRestaurantList> response = mapsApiService.getNearestOpenRestaurant(apiKey, latlngString)
                         .execute();
                 if (!response.isSuccessful()) {
                     Log.e(TAG, "ERROR RESPONSE CODE " + response.code());
