@@ -14,4 +14,9 @@ public interface MapsApiService {
     @GET("place/autocomplete/json")
     Call<PlaceAutoSuggestionList> getAutocompleteSuggestions(@Query("key") String apiKey,
                                                              @Query("input") String input);
+    @GET("directions/json?mode=walking")
+    Call<NavDirectionsList> getDirections(@Query("key") String apiKey,
+                                          @Query("origin") String origin,
+                                          @Query("destination") String destination);
+
 }

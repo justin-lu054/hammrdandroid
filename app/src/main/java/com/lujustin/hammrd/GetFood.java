@@ -20,11 +20,15 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.Tasks;
 
+import com.lujustin.hammrd.models.NavDirectionsList;
 import com.lujustin.hammrd.models.NearestOpenRestaurant;
 import com.lujustin.hammrd.models.NearestOpenRestaurantList;
 import com.lujustin.hammrd.models.MapsApiService;
+
+import java.util.List;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
@@ -45,24 +49,37 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     //store location in activity state
     private static final String TAG = "GetFood";
 
-    private static final int DEFAULT_ZOOM = 12;
+    private static final int DEFAULT_ZOOM = 14;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION_DENIED = 0;
+
+    private String apiKey;
 
     private LoadingActivity loadingActivity;
     private NearestOpenRestaurant restaurant;
 
+    private Retrofit retrofit;
+    private MapsApiService mapsApiService;
+
+    private List<LatLng> directionCoordinates;
+
+
     //CURRENT IDEA!
     //have each required location related or api call related service return a task....
     //and when all tasks are done (using Task.all) then we getMapAsync
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         loadingActivity = new LoadingActivity(this);
         loadingActivity.startLoadingDialog();
+        apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+        mapsApiService = retrofit.create(MapsApiService.class);
+
         setContentView(R.layout.activity_get_food);
         getLocationPermission();
     }
@@ -84,14 +101,6 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
 
     private Observable<NearestOpenRestaurantList> getNearestRestaurant(String apiKey, String latlngString) {
         return Observable.create(subscriber -> {
-            Retrofit retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
-
-            MapsApiService mapsApiService =
-                    retrofit.create(MapsApiService.class);
-
-            Log.d(TAG, latlngString);
             try {
                 Response<NearestOpenRestaurantList> response = mapsApiService.getNearestOpenRestaurant(apiKey, latlngString)
                         .execute();
@@ -105,6 +114,28 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
                 subscriber.onNext(nearestOpenRestaurants);
 
             } catch (Exception e) {
+                e.printStackTrace();
+                subscriber.onError(e);
+            }
+        });
+    }
+
+    private Observable<List<LatLng>> getWalkingDirections(String apiKey, String originCoords, String destinationCoords) {
+        return Observable.create(subscriber -> {
+            try {
+                Response<NavDirectionsList> response = mapsApiService.getDirections(apiKey, originCoords, destinationCoords)
+                        .execute();
+                if (!response.isSuccessful()) {
+                    Log.e(TAG, "ERROR RESPONSE CODE " + response.code());
+                    Throwable t = new Throwable("Error occured with GET request. Response code " + response.code());
+                    subscriber.onError(t);
+                    return;
+                }
+                NavDirectionsList navDirectionsList = response.body();
+                subscriber.onNext(navDirectionsList.getDirectionsList().get(0).getDirectionLatLngs());
+            }
+            catch (Exception e) {
+                e.printStackTrace();
                 subscriber.onError(e);
             }
         });
@@ -150,32 +181,40 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
 
     private void initMap() {
         Observable<Location> locationTask = getDeviceLocation();
-        Log.d(TAG, "initMap called");
         locationTask.subscribeOn(Schedulers.io())
                     .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
             @Override
             public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
-                Log.d(TAG, "apply called");
                 lastKnownLocation = userLocation;
-                String apiKey = getString(R.string.GOOGLE_API_KEY);
                 String latlngString = Double.toString(userLocation.getLatitude()) + ","
                         + Double.toString(userLocation.getLongitude());
                 return getNearestRestaurant(apiKey, latlngString);
             }
         })
+                .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
+                    @Override
+                    public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
+                        restaurant = nearestOpenRestaurantList.getList().get(0);
+
+                        String userLocationString = lastKnownLocation.getLatitude() + ","
+                                                    + lastKnownLocation.getLongitude();
+
+                        String restaurantLocationString = restaurant.getLatitude() + ","
+                                                        + restaurant.getLongitude();
+
+                        return getWalkingDirections(apiKey, userLocationString, restaurantLocationString);
+                    }
+                })
                 .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(nearestOpenRestaurantList -> {
-            Log.d(TAG, "restaurantquery completed");
-            restaurant = nearestOpenRestaurantList.getList().get(0);
+        .subscribe(result -> {
+            directionCoordinates = result;
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.getFoodMap);
-
             if (mapFragment != null) {
                 mapFragment.getMapAsync(GetFood.this);
             }
             loadingActivity.dismissDialog();
         }, e -> e.printStackTrace());
-
     }
 
     @Override
@@ -189,6 +228,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, DEFAULT_ZOOM));
         mMap.addMarker(userMarkerOptions);
         mMap.addMarker(restaurauntMarkerOptions);
-
+        PolylineOptions polylineOptions = new PolylineOptions().addAll(directionCoordinates);
+        mMap.addPolyline(polylineOptions);
     }
 }
