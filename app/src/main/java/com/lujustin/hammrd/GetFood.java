@@ -63,16 +63,9 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
 
     private List<LatLng> directionCoordinates;
 
-
-    //CURRENT IDEA!
-    //have each required location related or api call related service return a task....
-    //and when all tasks are done (using Task.all) then we getMapAsync
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        loadingActivity = new LoadingActivity(this);
-        loadingActivity.startLoadingDialog();
         apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
@@ -180,14 +173,16 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     }
 
     private void initMap() {
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
         Observable<Location> locationTask = getDeviceLocation();
         locationTask.subscribeOn(Schedulers.io())
                     .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
             @Override
             public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
                 lastKnownLocation = userLocation;
-                String latlngString = Double.toString(userLocation.getLatitude()) + ","
-                        + Double.toString(userLocation.getLongitude());
+                String latlngString = userLocation.getLatitude() + ","
+                        + userLocation.getLongitude();
                 return getNearestRestaurant(apiKey, latlngString);
             }
         })
