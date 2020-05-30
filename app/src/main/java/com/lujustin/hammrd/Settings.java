@@ -22,13 +22,13 @@ import java.util.Arrays;
 
 public class Settings extends AppCompatActivity {
 
-    SharedPreferences settingsPref;
-    TextInputEditText userNameField;
-    TextInputEditText userNumberField;
-    TextInputEditText contactNameField;
-    TextInputEditText contactNumberField;
-    AutoCompleteTextView addressField;
-    Button saveButton;
+    private SharedPreferences settingsPref;
+    private TextInputEditText userNameField;
+    private TextInputEditText userNumberField;
+    private TextInputEditText contactNameField;
+    private TextInputEditText contactNumberField;
+    private AutoCompleteTextView addressField;
+    private Button saveButton;
 
     public static final String preferenceName = "HammrdPreferences";
     public static final String userName = "userName";
