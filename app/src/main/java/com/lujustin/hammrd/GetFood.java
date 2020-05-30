@@ -277,12 +277,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
             builder.setTitle("Looks like you're missing something!")
                     .setMessage("Please fill out all the settings first.")
                     .setCancelable(false)
-                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            finish();
-                        }
-                    })
+                    .setPositiveButton("OK", (dialog, which) -> finish())
                     .create()
                     .show();
             return false;
@@ -299,12 +294,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
                 builder.setTitle("Invalid address detected!")
                         .setMessage("Please provide a valid address in settings.")
                         .setCancelable(false)
-                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                finish();
-                            }
-                        })
+                        .setPositiveButton("OK", (dialog, which) -> finish())
                         .create()
                         .show();
                 return false;

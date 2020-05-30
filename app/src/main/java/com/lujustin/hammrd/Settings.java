@@ -1,8 +1,10 @@
 package com.lujustin.hammrd;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,14 +13,8 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.google.android.gms.common.api.Status;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
-import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.android.material.textfield.TextInputEditText;
 import com.lujustin.hammrd.adapters.PlaceAutoSuggestAdapter;
-
-import java.util.Arrays;
 
 public class Settings extends AppCompatActivity {
 
@@ -70,12 +66,38 @@ public class Settings extends AppCompatActivity {
 
     private void writeSettings() {
         SharedPreferences.Editor settingsEditor = settingsPref.edit();
-
         String userNameText = userNameField.getText().toString();
         String userNumberText = userNumberField.getText().toString();
         String contactNameText = contactNameField.getText().toString();
         String contactNumberText = contactNumberField.getText().toString();
         String addressText = addressField.getText().toString();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        String validPhonePattern = "^\\+1[2-9]\\d{9}$";
+
+        if (userNameText.trim().length() == 0 || userNumberText.trim().length() == 0 ||
+            contactNameText.trim().length() == 0 || contactNumberText.trim().length() == 0 ||
+            addressText.trim().length() == 0) {
+
+            builder.setTitle("Looks like you're missing something!")
+                    .setMessage("Please fill out all the settings first.")
+                    .setCancelable(true)
+                    .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                    .create()
+                    .show();
+            return;
+        }
+
+        if (!(userNumberText.matches(validPhonePattern) && contactNumberText.matches(validPhonePattern))) {
+            builder.setTitle("Please provide a valid phone number.")
+                    .setMessage("\"Please enter your phone number in the format +1xxxxxxxxxx." +
+                            "Only North American numbers are supported")
+                    .setCancelable(true)
+                    .setPositiveButton("Dismiss", ((dialog, which) -> dialog.dismiss()))
+                    .create()
+                    .show();
+            return;
+        }
 
         settingsEditor.putString(userName, userNameText);
         settingsEditor.putString(userNumber, userNumberText);
@@ -93,7 +115,7 @@ public class Settings extends AppCompatActivity {
         String userNameText = settingsPref.getString(userName, "");
         String userNumberText = settingsPref.getString(userNumber, "");
         String contactNameText = settingsPref.getString(contactName, "");
-        String contactNumberText = settingsPref.getString(contactName, "");
+        String contactNumberText = settingsPref.getString(contactNumber, "");
         String addressText = settingsPref.getString(address, "");
 
         userNameField.setText(userNameText);

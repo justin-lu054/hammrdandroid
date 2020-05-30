@@ -34,8 +34,6 @@ public class LocationTrackingService extends Service {
 
     private static final String TAG = "LocationTrackingService";
 
-
-
     private final static long UPDATE_INTERVAL = 60 * 1000;
     private final static long FASTEST_INTERVAL = 60 * 1000;
     private final static String ACTION_STOP_TRACKING = "ACTION_STOP_TRACKING";
