@@ -1,10 +1,8 @@
 package com.lujustin.hammrd;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
@@ -23,6 +21,7 @@ public class Settings extends AppCompatActivity {
     private TextInputEditText userNumberField;
     private TextInputEditText contactNameField;
     private TextInputEditText contactNumberField;
+    private TextInputEditText maxInactivityTimeField;
     private AutoCompleteTextView addressField;
     private Button saveButton;
 
@@ -32,6 +31,7 @@ public class Settings extends AppCompatActivity {
     public static final String contactName = "contactName";
     public static final String contactNumber = "contactNumber";
     public static final String address = "address";
+    public static final String maxInactivityTime = "maxInactivityTime";
 
     private static final String TAG = "SettingsActivity";
 
@@ -41,27 +41,24 @@ public class Settings extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
         settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
-
         userNameField = findViewById(R.id.userName);
         userNumberField = findViewById(R.id.userNumber);
         contactNameField = findViewById(R.id.contactName);
         contactNumberField = findViewById(R.id.contactNumber);
+        maxInactivityTimeField = findViewById(R.id.maxInactivityTime);
 
         addressField = findViewById(R.id.address);
-        Log.d(TAG, Integer.toString(android.R.layout.simple_list_item_1));
-
         addressField.setAdapter(new PlaceAutoSuggestAdapter(this, android.R.layout.simple_list_item_1));
 
         saveButton = findViewById(R.id.saveSettingsButton);
-
-        loadSettings();
-
         saveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 writeSettings();
             }
         });
+
+        loadSettings();
     }
 
     private void writeSettings() {
@@ -71,13 +68,14 @@ public class Settings extends AppCompatActivity {
         String contactNameText = contactNameField.getText().toString();
         String contactNumberText = contactNumberField.getText().toString();
         String addressText = addressField.getText().toString();
+        String maxInactivityTimeText = maxInactivityTimeField.getText().toString();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         String validPhonePattern = "^\\+1[2-9]\\d{9}$";
 
         if (userNameText.trim().length() == 0 || userNumberText.trim().length() == 0 ||
             contactNameText.trim().length() == 0 || contactNumberText.trim().length() == 0 ||
-            addressText.trim().length() == 0) {
+            addressText.trim().length() == 0 || maxInactivityTimeText.length() == 0) {
 
             builder.setTitle("Looks like you're missing something!")
                     .setMessage("Please fill out all the settings first.")
@@ -98,12 +96,14 @@ public class Settings extends AppCompatActivity {
                     .show();
             return;
         }
-
+        //convert the specified maximum inactivity time to miliseconds
+        long maxInactivityTimeValue = Integer.parseInt(maxInactivityTimeText) * 60 * 1000;
         settingsEditor.putString(userName, userNameText);
         settingsEditor.putString(userNumber, userNumberText);
         settingsEditor.putString(contactName, contactNameText);
         settingsEditor.putString(contactNumber, contactNumberText);
         settingsEditor.putString(address, addressText);
+        settingsEditor.putLong(maxInactivityTime, maxInactivityTimeValue);
 
         settingsEditor.commit();
         Toast.makeText(this, "Settings saved!", Toast.LENGTH_SHORT).show();
@@ -117,11 +117,13 @@ public class Settings extends AppCompatActivity {
         String contactNameText = settingsPref.getString(contactName, "");
         String contactNumberText = settingsPref.getString(contactNumber, "");
         String addressText = settingsPref.getString(address, "");
+        long maxInactivityTimeValue = settingsPref.getLong(maxInactivityTime, 30);
 
         userNameField.setText(userNameText);
         userNumberField.setText(userNumberText);
         contactNameField.setText(contactNameText);
         contactNumberField.setText(contactNumberText);
         addressField.setText(addressText);
+        maxInactivityTimeField.setText(Long.toString(maxInactivityTimeValue / 60 / 1000));
     }
 }
