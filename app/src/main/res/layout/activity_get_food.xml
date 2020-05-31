@@ -21,10 +21,13 @@
         android:layout_height="wrap_content"
         android:layout_weight="10"
         android:orientation="vertical">
-        <Button
+        <android.widget.Button
             android:id="@+id/navigateButton"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@drawable/buttongradient"
+            android:fontFamily="sans-serif-light"
+            android:textSize="30dp"
             android:text="Button"/>
     </LinearLayout>
 
