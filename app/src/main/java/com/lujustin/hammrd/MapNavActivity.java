@@ -8,7 +8,6 @@ import androidx.fragment.app.FragmentActivity;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -19,7 +18,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -51,7 +49,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class GetFood extends FragmentActivity implements OnMapReadyCallback{
+public class MapNavActivity extends FragmentActivity implements OnMapReadyCallback{
 
     private GoogleMap mMap;
 
@@ -60,7 +58,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     private Location lastKnownLocation;
 
     //store location in activity state
-    private static final String TAG = "GetFood";
+    private static final String TAG = "MapNavActivity";
     private static final int DEFAULT_ZOOM = 14;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
     private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION_DENIED = 0;
@@ -74,9 +72,10 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     private String contactNameText;
     private String contactNumberText;
     private String address;
-    private double destinationLatitude;
-    private double destinationLongitude;
+    private double homeLatitude;
+    private double homeLongitude;
     private final String ACTION_START_TRACKING = "ACTION_START_TRACKING";
+    private String NAV_MODE;
 
     private LoadingActivity loadingActivity;
     private NearestOpenRestaurant restaurant;
@@ -85,6 +84,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     private MapsApiService mapsApiService;
 
     private List<LatLng> directionCoordinates;
+    private Button navButton;
 
     //maybe have some sort of parameter to indicate whether you want to gethome, or getfood? that way we reduce repetition
     @Override
@@ -97,6 +97,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         mapsApiService = retrofit.create(MapsApiService.class);
+        NAV_MODE = getIntent().getStringExtra("NAV_MODE");
 
         setContentView(R.layout.activity_get_food);
         getLocationPermission();
@@ -104,8 +105,8 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
 
     private void startLocationTracker() {
         Intent serviceIntent = new Intent(this, LocationTrackingService.class);
-        serviceIntent.putExtra("destinationLatitude", destinationLatitude);
-        serviceIntent.putExtra("destinationLongitude", destinationLongitude);
+        serviceIntent.putExtra("destinationLatitude", homeLatitude);
+        serviceIntent.putExtra("destinationLongitude", homeLongitude);
         serviceIntent.putExtra("userName", userNameText);
         serviceIntent.putExtra("userNumber", userNumberText);
         serviceIntent.putExtra("contactName", contactNameText);
@@ -113,7 +114,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
         serviceIntent.setAction(ACTION_START_TRACKING);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            GetFood.this.startForegroundService(serviceIntent);
+            MapNavActivity.this.startForegroundService(serviceIntent);
         }
         else {
             startService(serviceIntent);
@@ -181,7 +182,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
         if (ContextCompat.checkSelfPermission(this.getApplicationContext(),
                 android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             locationPermissionGranted = true;
-            initFoodMap();
+            initMap();
         }
 
         else {
@@ -200,7 +201,7 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
             case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION : {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     locationPermissionGranted = true;
-                    initFoodMap();
+                    initMap();
                 }
                 //can't just use request code to check... you need to check the specific permission as well!
                 else {
@@ -215,49 +216,98 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
         }
     }
 
+    public void initMap() {
+        navButton = findViewById(R.id.navigateButton);
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
+        switch(NAV_MODE) {
+            case "MapNavActivity":
+                navButton.setText("Take me to food!");
+                initFoodMap();
+                break;
+            case "GetHome":
+                navButton.setText("Take me home!");
+                initHomeMap();
+                break;
+        }
+    }
+
     private void initFoodMap() {
+        Observable<Location> locationTask = getDeviceLocation();
+        locationTask.subscribeOn(Schedulers.io())
+                    .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
+                        @Override
+                        public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
+                            lastKnownLocation = userLocation;
+                            String latlngString = userLocation.getLatitude() + ","
+                                    + userLocation.getLongitude();
+                            return getNearestRestaurant(apiKey, latlngString);
+                        }
+                    })
+                    .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
+                        @Override
+                        public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
+                            restaurant = nearestOpenRestaurantList.getList().get(0);
+
+                            String userLocationString = lastKnownLocation.getLatitude() + ","
+                                                        + lastKnownLocation.getLongitude();
+
+                            String restaurantLocationString = restaurant.getLatitude() + ","
+                                                            + restaurant.getLongitude();
+
+                            return getWalkingDirections(apiKey, userLocationString, restaurantLocationString);
+                        }
+                    })
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(result -> {
+                        directionCoordinates = result;
+                        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                                .findFragmentById(R.id.getFoodMap);
+                        if (mapFragment != null) {
+                            mapFragment.getMapAsync(MapNavActivity.this);
+                        }
+                        loadingActivity.dismissDialog();
+                    }, e -> e.printStackTrace());
+    }
+
+    private void initHomeMap() {
         //validate that settings are filled out, address provided is valid
         boolean settingsValidated = validateSettings();
         if (!settingsValidated) {
             return;
         }
-        loadingActivity = new LoadingActivity(this);
-        loadingActivity.startLoadingDialog();
         Observable<Location> locationTask = getDeviceLocation();
         locationTask.subscribeOn(Schedulers.io())
-                    .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
-            @Override
-            public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
-                lastKnownLocation = userLocation;
-                String latlngString = userLocation.getLatitude() + ","
-                        + userLocation.getLongitude();
-                return getNearestRestaurant(apiKey, latlngString);
-            }
-        })
-                .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
-                    @Override
-                    public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
-                        restaurant = nearestOpenRestaurantList.getList().get(0);
-
-                        String userLocationString = lastKnownLocation.getLatitude() + ","
-                                                    + lastKnownLocation.getLongitude();
-
-                        String restaurantLocationString = restaurant.getLatitude() + ","
-                                                        + restaurant.getLongitude();
-
-                        return getWalkingDirections(apiKey, userLocationString, restaurantLocationString);
-                    }
-                })
-                .observeOn(AndroidSchedulers.mainThread())
-        .subscribe(result -> {
-            directionCoordinates = result;
-            SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                    .findFragmentById(R.id.getFoodMap);
-            if (mapFragment != null) {
-                mapFragment.getMapAsync(GetFood.this);
-            }
-            loadingActivity.dismissDialog();
-        }, e -> e.printStackTrace());
+                    .flatMap(new Function<Location, Observable<List<LatLng>>>() {
+                        @Override
+                        public Observable<List<LatLng>> apply(Location location) throws Throwable {
+                            lastKnownLocation = location;
+                            String userLocationString = lastKnownLocation.getLatitude() + ","
+                                                        + lastKnownLocation.getLongitude();
+                            String homeLocationString = homeLatitude + "," + homeLongitude;
+                            return getWalkingDirections(apiKey, userLocationString, homeLocationString);
+                        }
+                    })
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(result -> {
+                        if (result.size() == 0) {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                            builder.setTitle("No walking directions found!")
+                                    .setMessage("No directions were found to your address")
+                                    .setCancelable(false)
+                                    .setPositiveButton("OK", (dialog, which) -> finish())
+                                    .create()
+                                    .show();
+                            return;
+                        }
+                        directionCoordinates = result;
+                        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                                .findFragmentById(R.id.getFoodMap);
+                        if (mapFragment != null) {
+                            mapFragment.getMapAsync(MapNavActivity.this);
+                        }
+                        loadingActivity.dismissDialog();
+                    }, e -> e.printStackTrace());
     }
 
     private boolean validateSettings() {
@@ -287,8 +337,8 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
         try {
             List<Address> results = geocoder.getFromLocationName(address, 1);
             if (results.size() > 0) {
-                destinationLatitude = results.get(0).getLatitude();
-                destinationLongitude = results.get(0).getLongitude();
+                homeLatitude = results.get(0).getLatitude();
+                homeLongitude = results.get(0).getLongitude();
             }
             else {
                 builder.setTitle("Invalid address detected!")
@@ -310,28 +360,43 @@ public class GetFood extends FragmentActivity implements OnMapReadyCallback{
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         LatLng currentLatLng = new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude());
-        LatLng nearestRestaurantLatLng = new LatLng(restaurant.getLatitude(), restaurant.getLongitude());
         MarkerOptions userMarkerOptions = new MarkerOptions().position(currentLatLng).title("I am here!");
-        MarkerOptions restaurauntMarkerOptions = new MarkerOptions().position(nearestRestaurantLatLng).title(restaurant.getName());
         mMap.animateCamera(CameraUpdateFactory.newLatLng(currentLatLng));
         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, DEFAULT_ZOOM));
         mMap.addMarker(userMarkerOptions);
-        mMap.addMarker(restaurauntMarkerOptions);
         PolylineOptions polylineOptions = new PolylineOptions().addAll(directionCoordinates);
         mMap.addPolyline(polylineOptions);
-
-        Button navButton = findViewById(R.id.navigateButton);
-        navButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startLocationTracker();
-                String destinationString = restaurant.getLatitude() + "," +
-                                            restaurant.getLongitude();
-                Uri navUri = Uri.parse(String.format("google.navigation:q=%s&mode=w", destinationString));
-                Intent navIntent = new Intent(Intent.ACTION_VIEW, navUri);
-                navIntent.setPackage("com.google.android.apps.maps");
-                startActivity(navIntent);
-            }
-        });
+        String destinationString;
+        switch (NAV_MODE) {
+            case "GetHome":
+                LatLng homeLatLng = new LatLng(homeLatitude, homeLongitude);
+                MarkerOptions homeMarkerOptions = new MarkerOptions()
+                                                    .position(homeLatLng)
+                                                    .title(address);
+                mMap.addMarker(homeMarkerOptions);
+                destinationString = homeLatitude + "," + homeLongitude;
+                navButton.setOnClickListener(v -> {
+                    startLocationTracker();
+                    Uri navUri = Uri.parse(String.format("google.navigation:q=%s&mode=w", destinationString));
+                    Intent navIntent = new Intent(Intent.ACTION_VIEW, navUri);
+                    navIntent.setPackage("com.google.android.apps.maps");
+                    startActivity(navIntent);
+                });
+                break;
+            case "MapNavActivity":
+                LatLng nearestRestaurantLatLng = new LatLng(restaurant.getLatitude(), restaurant.getLongitude());
+                MarkerOptions restaurauntMarkerOptions = new MarkerOptions()
+                                                        .position(nearestRestaurantLatLng)
+                                                        .title(restaurant.getName());
+                mMap.addMarker(restaurauntMarkerOptions);
+                destinationString = restaurant.getLatitude() + "," + restaurant.getLongitude();
+                navButton.setOnClickListener(v -> {
+                    Uri navUri = Uri.parse(String.format("google.navigation:q=%s&mode=w", destinationString));
+                    Intent navIntent = new Intent(Intent.ACTION_VIEW, navUri);
+                    navIntent.setPackage("com.google.android.apps.maps");
+                    startActivity(navIntent);
+                });
+                break;
+        }
     }
 }

@@ -31,12 +31,8 @@
             android:value="@string/google_maps_key" />
 
         <activity
-            android:name=".GetFood"
+            android:name=".MapNavActivity"
             android:label="@string/title_activity_get_food"
-            android:parentActivityName=".MainActivity"/>
-        <activity
-            android:name=".GetHome"
-            android:label="@string/title_activity_get_home"
             android:parentActivityName=".MainActivity"/>
         <activity android:name=".MainActivity">
             <intent-filter>

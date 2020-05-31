@@ -1,6 +1,5 @@
 package com.lujustin.hammrd;
 
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -46,12 +45,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openGetHome() {
-        Intent intent = new Intent(this, GetHome.class);
+        Intent intent = new Intent(this, MapNavActivity.class);
+        intent.putExtra("NAV_MODE", "GetHome");
         startActivity(intent);
     }
 
     public void openGetFood() {
-        Intent intent = new Intent(this, GetFood.class);
+        Intent intent = new Intent(this, MapNavActivity.class);
+        intent.putExtra("NAV_MODE", "MapNavActivity");
         startActivity(intent);
     }
 
