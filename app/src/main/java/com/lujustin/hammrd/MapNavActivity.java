@@ -86,7 +86,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private List<LatLng> directionCoordinates;
     private Button navButton;
 
-    //maybe have some sort of parameter to indicate whether you want to gethome, or getfood? that way we reduce repetition
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,7 +99,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         NAV_MODE = getIntent().getStringExtra("NAV_MODE");
 
         setContentView(R.layout.activity_get_food);
-        getLocationPermission();
+        checkLocationPermission();
     }
 
     private void startLocationTracker() {
@@ -111,6 +110,10 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         serviceIntent.putExtra("userNumber", userNumberText);
         serviceIntent.putExtra("contactName", contactNameText);
         serviceIntent.putExtra("contactNumber", contactNumberText);
+
+        long maxInactivityTime = settingsPref.getLong("maxInactivityTime", (15 * 60 * 1000));
+        serviceIntent.putExtra("maxInactivityTime", maxInactivityTime);
+
         serviceIntent.setAction(ACTION_START_TRACKING);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -178,7 +181,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         });
     }
 
-    private void getLocationPermission() {
+    private void checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(this.getApplicationContext(),
                 android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             locationPermissionGranted = true;

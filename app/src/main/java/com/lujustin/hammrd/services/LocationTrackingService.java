@@ -30,6 +30,10 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.lujustin.hammrd.R;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+
 public class LocationTrackingService extends Service {
 
     private static final String TAG = "LocationTrackingService";
@@ -46,9 +50,15 @@ public class LocationTrackingService extends Service {
     private String userNumberText;
     private String contactNameText;
     private String contactNumberText;
-    private double destinationLatitude;
-    private double destinationLongitude;
+    private Location destinationLocation;
+    private long maxInactivityTime;
 
+    private LocationCallback locationCallback;
+
+    private ArrayList<LocalDateTime> timeHistory = new ArrayList<>();
+    private ArrayList<Location> locationHistory = new ArrayList<>();
+    private long elapsedTime = 0;
+    private double elapsedDistance = 0;
     private boolean alreadyTracking = false;
 
     @Nullable
@@ -92,16 +102,24 @@ public class LocationTrackingService extends Service {
             if (action != null) {
                 if (action.equals(ACTION_START_TRACKING) && !alreadyTracking) {
                     Bundle bundle = intent.getExtras();
-                    destinationLatitude = bundle.getDouble("destinationLatitude");
-                    destinationLongitude = bundle.getDouble("destinationLongitude");
+                    destinationLocation = new Location("");
+                    destinationLocation.setLatitude(bundle.getDouble("destinationLatitude"));
+                    destinationLocation.setLongitude(bundle.getDouble("destinationLongitude"));
                     userNameText = bundle.getString("userNameText");
                     userNumberText = bundle.getString("userNumber");
                     contactNameText = bundle.getString("contactName");
                     contactNumberText = bundle.getString("contactNumber");
+                    maxInactivityTime = bundle.getLong("maxInactivityTime");
                     alreadyTracking = true;
                     startLocationTracking();
                 }
                 if (action.equals(ACTION_STOP_TRACKING)) {
+                    /*
+                        We need to call this here to prevent duplicate location updates from being
+                        called if the service is stopped an restarted within a single lifespan
+                        of the app
+                     */
+                    fusedLocationProviderClient.removeLocationUpdates(locationCallback);
                     stopLocationTracking();
                 }
             }
@@ -109,7 +127,7 @@ public class LocationTrackingService extends Service {
         return START_NOT_STICKY;
     }
 
-    public void startLocationTracking() {
+    private void startLocationTracking() {
         Log.d(TAG, "Starting location tracking service...");
         if (Build.VERSION.SDK_INT >= 26) {
             String CHANNEL_ID = "location_tracking_channel";
@@ -141,7 +159,7 @@ public class LocationTrackingService extends Service {
         getLocation();
     }
 
-    public void getLocation() {
+    private void getLocation() {
         LocationRequest locationRequest = new LocationRequest();
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         locationRequest.setInterval(UPDATE_INTERVAL);
@@ -150,25 +168,65 @@ public class LocationTrackingService extends Service {
         if (ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Location permission not granted. Stopping service");
-            stopSelf();
+            stopLocationTracking();
             return;
         }
-        //added foreground service type to android manifest and location updates now work in background
-        fusedLocationProviderClient.requestLocationUpdates(locationRequest, new LocationCallback() {
+
+        locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(LocationResult locationResult) {
                 Location location = locationResult.getLastLocation();
                 Log.d(TAG, "Called location updates");
                 if (location != null) {
-                    Log.d(TAG, "latitude: " + location.getLatitude() + " longitude: " + location.getLongitude());
+                    handleLocation(location);
                 }
             }
-
-        }, Looper.myLooper());
+        };
+        //added foreground service type to android manifest and location updates now work in background
+        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.myLooper());
     }
 
-    public void stopLocationTracking() {
+    private void handleLocation(Location location) {
+        LocalDateTime currentTime = LocalDateTime.now();
+        if (locationHistory.size() > 0) {
+            elapsedDistance += locationHistory.get(locationHistory.size() - 1).distanceTo(location);
+            locationHistory.remove(0);
+        }
+        if (timeHistory.size() > 0) {
+            elapsedTime += (Duration.between(timeHistory.get(timeHistory.size() - 1), currentTime).getSeconds()) * 1000;
+            timeHistory.remove(0);
+        }
+        Log.d(TAG, "latitude: " + location.getLatitude() + " longitude: " + location.getLongitude());
+        Log.d(TAG, "elapsed time: " + elapsedTime);
+        Log.d(TAG, "elapsed distance: " + elapsedDistance);
+
+        if (location.distanceTo(destinationLocation) < 100) {
+            Log.d(TAG, "Reached Destination");
+            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+            stopLocationTracking();
+        }
+
+        if (elapsedTime > maxInactivityTime) {
+            if (elapsedDistance < 100) {
+                Log.d(TAG, "Inactivity detected");
+            }
+            timeHistory.clear();
+            locationHistory.clear();
+            elapsedDistance = 0;
+            elapsedTime = 0;
+        }
+
+        timeHistory.add(currentTime);
+        locationHistory.add(location);
+    }
+
+    private void stopLocationTracking() {
         alreadyTracking = false;
+        timeHistory.clear();
+        locationHistory.clear();
+        elapsedDistance = 0;
+        elapsedTime = 0;
+        fusedLocationProviderClient = null;
         stopForeground(true);
         stopSelf();
         if (wakeLock != null) {
@@ -176,5 +234,4 @@ public class LocationTrackingService extends Service {
             wakeLock = null;
         }
     }
-
 }
