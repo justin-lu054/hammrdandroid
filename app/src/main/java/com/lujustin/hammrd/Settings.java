@@ -71,10 +71,8 @@ public class Settings extends AppCompatActivity {
         String maxInactivityTimeText = maxInactivityTimeField.getText().toString();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        String validPhonePattern = "^\\+1[2-9]\\d{9}$";
 
-        if (userNameText.trim().length() == 0 || userNumberText.trim().length() == 0 ||
-            contactNameText.trim().length() == 0 || contactNumberText.trim().length() == 0 ||
+        if (userNameText.trim().length() == 0 || contactNameText.trim().length() == 0 ||
             addressText.trim().length() == 0 || maxInactivityTimeText.length() == 0) {
 
             builder.setTitle("Looks like you're missing something!")
@@ -86,22 +84,22 @@ public class Settings extends AppCompatActivity {
             return;
         }
 
-        if (!(userNumberText.matches(validPhonePattern) && contactNumberText.matches(validPhonePattern))) {
-            builder.setTitle("Please provide a valid phone number.")
-                    .setMessage("\"Please enter your phone number in the format +1xxxxxxxxxx." +
-                            "Only North American numbers are supported")
+        if (userNumberText.length() != 10 || contactNumberText.length() != 10) {
+            builder.setTitle("Looks like you're missing something!")
+                    .setMessage("Please provide a valid phone number.")
                     .setCancelable(true)
-                    .setPositiveButton("Dismiss", ((dialog, which) -> dialog.dismiss()))
+                    .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
                     .create()
                     .show();
             return;
         }
+
         //convert the specified maximum inactivity time to miliseconds
         long maxInactivityTimeValue = Integer.parseInt(maxInactivityTimeText) * 60 * 1000;
         settingsEditor.putString(userName, userNameText);
-        settingsEditor.putString(userNumber, userNumberText);
+        settingsEditor.putString(userNumber, "+1" + userNumberText);
         settingsEditor.putString(contactName, contactNameText);
-        settingsEditor.putString(contactNumber, contactNumberText);
+        settingsEditor.putString(contactNumber, "+1" + contactNumberText);
         settingsEditor.putString(address, addressText);
         settingsEditor.putLong(maxInactivityTime, maxInactivityTimeValue);
 
@@ -120,9 +118,9 @@ public class Settings extends AppCompatActivity {
         long maxInactivityTimeValue = settingsPref.getLong(maxInactivityTime, 30);
 
         userNameField.setText(userNameText);
-        userNumberField.setText(userNumberText);
+        userNumberField.setText(userNumberText.replace("+1", ""));
         contactNameField.setText(contactNameText);
-        contactNumberField.setText(contactNumberText);
+        contactNumberField.setText(contactNumberText.replace("+1", ""));
         addressField.setText(addressText);
         maxInactivityTimeField.setText(Long.toString(maxInactivityTimeValue / 60 / 1000));
     }
