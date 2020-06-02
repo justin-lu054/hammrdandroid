@@ -29,10 +29,18 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.lujustin.hammrd.R;
+import com.lujustin.hammrd.models.HammrdTwilioData;
+import com.lujustin.hammrd.models.TwilioInterface;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class LocationTrackingService extends Service {
 
@@ -52,6 +60,9 @@ public class LocationTrackingService extends Service {
     private String contactNumberText;
     private Location destinationLocation;
     private long maxInactivityTime;
+
+    private Retrofit retrofit;
+    private TwilioInterface twilioInterface;
 
     private LocationCallback locationCallback;
 
@@ -77,6 +88,11 @@ public class LocationTrackingService extends Service {
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "onCreate");
+
+        retrofit = new Retrofit.Builder().baseUrl("http://10.0.2.2:3000/")
+                            .addConverterFactory(GsonConverterFactory.create())
+                            .build();
+        twilioInterface = retrofit.create(TwilioInterface.class);
 
         HandlerThread handlerThread = new HandlerThread(TAG);
         handlerThread.start();
@@ -105,7 +121,7 @@ public class LocationTrackingService extends Service {
                     destinationLocation = new Location("");
                     destinationLocation.setLatitude(bundle.getDouble("destinationLatitude"));
                     destinationLocation.setLongitude(bundle.getDouble("destinationLongitude"));
-                    userNameText = bundle.getString("userNameText");
+                    userNameText = bundle.getString("userName");
                     userNumberText = bundle.getString("userNumber");
                     contactNameText = bundle.getString("contactName");
                     contactNumberText = bundle.getString("contactNumber");
@@ -209,6 +225,30 @@ public class LocationTrackingService extends Service {
         if (elapsedTime > maxInactivityTime) {
             if (elapsedDistance < 100) {
                 Log.d(TAG, "Inactivity detected");
+
+                String locationString = location.getLatitude() + "," + location.getLongitude();
+                int elapsedTimeMin = (int) elapsedTime / 60 / 1000;
+
+                HammrdTwilioData hammrdTwilioData = new HammrdTwilioData(userNameText, userNumberText,
+                                                        contactNameText, contactNumberText,
+                                                        locationString, elapsedTimeMin);
+                Call<Void> twilioPostRequest = twilioInterface.sendSMS(hammrdTwilioData);
+                twilioPostRequest.enqueue(new Callback<Void>() {
+                    @Override
+                    public void onResponse(Call<Void> call, Response<Void> response) {
+                        if(!response.isSuccessful()) {
+                            Log.e(TAG, "Error with POST request. Code " + response.code());
+                            return;
+                        }
+                        Log.d(TAG, "Success! Text message sent.");
+                    }
+
+                    @Override
+                    public void onFailure(Call<Void> call, Throwable t) {
+                        Log.e(TAG, "Error with POST request.");
+                        t.printStackTrace();
+                    }
+                });
             }
             timeHistory.clear();
             locationHistory.clear();

@@ -6,7 +6,7 @@ import android.widget.Filter;
 import android.widget.Filterable;
 
 import com.lujustin.hammrd.R;
-import com.lujustin.hammrd.models.MapsApiService;
+import com.lujustin.hammrd.models.MapsApiInterface;
 import com.lujustin.hammrd.models.PlaceAutoSuggestionList;
 
 import java.io.IOException;
@@ -48,11 +48,11 @@ public class PlaceAutoSuggestAdapter extends ArrayAdapter implements Filterable 
                                                 .addConverterFactory(GsonConverterFactory.create())
                                                 .build();
 
-        MapsApiService mapsApiService = retrofit.create(MapsApiService.class);
+        MapsApiInterface mapsApiInterface = retrofit.create(MapsApiInterface.class);
 
         try {
             String apiKey = context.getString(R.string.GOOGLE_API_KEY);
-            placeSuggestionsCall = mapsApiService.getAutocompleteSuggestions(apiKey, input);
+            placeSuggestionsCall = mapsApiInterface.getAutocompleteSuggestions(apiKey, input);
         }
         catch (Exception e) {
             e.printStackTrace();

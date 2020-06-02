@@ -35,7 +35,7 @@ import com.google.android.gms.tasks.Tasks;
 import com.lujustin.hammrd.models.NavDirectionsList;
 import com.lujustin.hammrd.models.NearestOpenRestaurant;
 import com.lujustin.hammrd.models.NearestOpenRestaurantList;
-import com.lujustin.hammrd.models.MapsApiService;
+import com.lujustin.hammrd.models.MapsApiInterface;
 import com.lujustin.hammrd.services.LocationTrackingService;
 
 import java.io.IOException;
@@ -81,7 +81,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private NearestOpenRestaurant restaurant;
 
     private Retrofit retrofit;
-    private MapsApiService mapsApiService;
+    private MapsApiInterface mapsApiInterface;
 
     private List<LatLng> directionCoordinates;
     private Button navButton;
@@ -95,7 +95,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-        mapsApiService = retrofit.create(MapsApiService.class);
+        mapsApiInterface = retrofit.create(MapsApiInterface.class);
         NAV_MODE = getIntent().getStringExtra("NAV_MODE");
 
         setContentView(R.layout.activity_get_food);
@@ -142,7 +142,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private Observable<NearestOpenRestaurantList> getNearestRestaurant(String apiKey, String latlngString) {
         return Observable.create(subscriber -> {
             try {
-                Response<NearestOpenRestaurantList> response = mapsApiService.getNearestOpenRestaurant(apiKey, latlngString)
+                Response<NearestOpenRestaurantList> response = mapsApiInterface.getNearestOpenRestaurant(apiKey, latlngString)
                         .execute();
                 if (!response.isSuccessful()) {
                     Log.e(TAG, "ERROR RESPONSE CODE " + response.code());
@@ -163,7 +163,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private Observable<List<LatLng>> getWalkingDirections(String apiKey, String originCoords, String destinationCoords) {
         return Observable.create(subscriber -> {
             try {
-                Response<NavDirectionsList> response = mapsApiService.getDirections(apiKey, originCoords, destinationCoords)
+                Response<NavDirectionsList> response = mapsApiInterface.getDirections(apiKey, originCoords, destinationCoords)
                         .execute();
                 if (!response.isSuccessful()) {
                     Log.e(TAG, "ERROR RESPONSE CODE " + response.code());
