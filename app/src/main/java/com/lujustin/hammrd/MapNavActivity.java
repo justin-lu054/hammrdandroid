@@ -89,6 +89,8 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
         apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
@@ -238,8 +240,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
 
     public void initMap() {
         navButton = findViewById(R.id.navigateButton);
-        loadingActivity = new LoadingActivity(this);
-        loadingActivity.startLoadingDialog();
         switch(NAV_MODE) {
             case "MapNavActivity":
                 navButton.setText("Take me to food!");
