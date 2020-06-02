@@ -89,15 +89,14 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
         apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         mapsApiInterface = retrofit.create(MapsApiInterface.class);
+        settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
         NAV_MODE = getIntent().getStringExtra("NAV_MODE");
-
         setContentView(R.layout.activity_get_food);
         checkLocationPermission();
     }
@@ -167,11 +166,18 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                         .execute();
                 if (!response.isSuccessful()) {
                     Log.e(TAG, "ERROR RESPONSE CODE " + response.code());
-                    Throwable t = new Throwable("Error occured with GET request. Response code " + response.code());
+                    Throwable t = new Throwable("Error occurred while fetching directions. Response code " + response.code());
                     subscriber.onError(t);
                     return;
                 }
                 NavDirectionsList navDirectionsList = response.body();
+
+                if (navDirectionsList.getDirectionsList().size() == 0) {
+                    Throwable t = new Throwable("No walking directions were found to your address.");
+                    subscriber.onError(t);
+                    return;
+                }
+
                 subscriber.onNext(navDirectionsList.getDirectionsList().get(0).getDirectionLatLngs());
             }
             catch (Exception e) {
@@ -200,6 +206,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         locationPermissionGranted = false;
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
         switch(requestCode) {
             case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION : {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -208,12 +215,22 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 }
                 //can't just use request code to check... you need to check the specific permission as well!
                 else {
-                    this.finish();
+                    builder.setTitle("Location permissions required")
+                            .setMessage("Location permissions are required for this feature to work.")
+                            .setCancelable(false)
+                            .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                            .create()
+                            .show();
                 }
             }
             break;
             case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION_DENIED : {
-                this.finish();
+                builder.setTitle("Location permissions required")
+                        .setMessage("Location permissions are required for this feature to work.")
+                        .setCancelable(false)
+                        .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                        .create()
+                        .show();
             }
             break;
         }
@@ -270,7 +287,17 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                             mapFragment.getMapAsync(MapNavActivity.this);
                         }
                         loadingActivity.dismissDialog();
-                    }, e -> e.printStackTrace());
+                    }, e -> {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                        builder.setTitle("No walking directions found!")
+                                .setMessage(e.getMessage())
+                                .setCancelable(false)
+                                .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                                .create()
+                                .show();
+                        e.printStackTrace();
+                        return;
+                    });
     }
 
     private void initHomeMap() {
@@ -293,16 +320,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     })
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(result -> {
-                        if (result.size() == 0) {
-                            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                            builder.setTitle("No walking directions found!")
-                                    .setMessage("No directions were found to your address")
-                                    .setCancelable(false)
-                                    .setPositiveButton("OK", (dialog, which) -> finish())
-                                    .create()
-                                    .show();
-                            return;
-                        }
                         directionCoordinates = result;
                         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                                 .findFragmentById(R.id.getFoodMap);
@@ -310,12 +327,21 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                             mapFragment.getMapAsync(MapNavActivity.this);
                         }
                         loadingActivity.dismissDialog();
-                    }, e -> e.printStackTrace());
+                    }, e ->  {
+                        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                        builder.setTitle("No walking directions found!")
+                                .setMessage(e.getMessage())
+                                .setCancelable(false)
+                                .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                                .create()
+                                .show();
+                        e.printStackTrace();
+                        return;
+                    });
     }
 
     private boolean validateSettings() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
         userNameText = settingsPref.getString("userName", "");
         userNumberText = settingsPref.getString("userNumber", "");
         contactNameText = settingsPref.getString("contactName", "");
@@ -330,7 +356,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
             builder.setTitle("Looks like you're missing something!")
                     .setMessage("Please fill out all the settings first.")
                     .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> finish())
+                    .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
                     .create()
                     .show();
             return false;
@@ -347,7 +373,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 builder.setTitle("Invalid address detected!")
                         .setMessage("Please provide a valid address in settings.")
                         .setCancelable(false)
-                        .setPositiveButton("OK", (dialog, which) -> finish())
+                        .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
                         .create()
                         .show();
                 return false;
@@ -357,6 +383,14 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
             e.printStackTrace();
         }
         return true;
+    }
+
+    /**
+     * Function that closes the loading dialog before finishing activity to stop memory leaks
+     */
+    private void stopLoadingAndFinish() {
+        loadingActivity.dismissDialog();
+        finish();
     }
 
     @Override
