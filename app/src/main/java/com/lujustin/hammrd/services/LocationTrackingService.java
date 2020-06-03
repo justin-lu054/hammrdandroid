@@ -89,7 +89,7 @@ public class LocationTrackingService extends Service {
         super.onCreate();
         Log.d(TAG, "onCreate");
 
-        retrofit = new Retrofit.Builder().baseUrl("http://10.0.2.2:3000/")
+        retrofit = new Retrofit.Builder().baseUrl("https://hammrdandroidtwilioservice.herokuapp.com/")
                             .addConverterFactory(GsonConverterFactory.create())
                             .build();
         twilioInterface = retrofit.create(TwilioInterface.class);
