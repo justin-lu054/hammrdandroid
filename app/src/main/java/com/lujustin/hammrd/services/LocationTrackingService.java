@@ -50,6 +50,9 @@ public class LocationTrackingService extends Service {
     private final static long FASTEST_INTERVAL = 60 * 1000;
     private final static String ACTION_STOP_TRACKING = "ACTION_STOP_TRACKING";
     private final String ACTION_START_TRACKING = "ACTION_START_TRACKING";
+    private final static int FOREGROUND_SERVICE_NOTIFICATION_ID = 1;
+    private final static int WARNING_NOTIFICATION_ID = 2;
+    private final static int CONFIRMATION_NOTIFICATION_ID = 3;
 
     private FusedLocationProviderClient fusedLocationProviderClient;
     private PowerManager.WakeLock wakeLock;
@@ -61,6 +64,9 @@ public class LocationTrackingService extends Service {
     private Location destinationLocation;
     private long maxInactivityTime;
 
+    private NotificationManagerCompat notificationManager;
+    private String CHANNEL_ID;
+
     private Retrofit retrofit;
     private TwilioInterface twilioInterface;
 
@@ -70,6 +76,7 @@ public class LocationTrackingService extends Service {
     private ArrayList<Location> locationHistory = new ArrayList<>();
     private long elapsedTime = 0;
     private double elapsedDistance = 0;
+    private boolean displayedWarning = false;
     private boolean alreadyTracking = false;
 
     @Nullable
@@ -146,7 +153,7 @@ public class LocationTrackingService extends Service {
     private void startLocationTracking() {
         Log.d(TAG, "Starting location tracking service...");
         if (Build.VERSION.SDK_INT >= 26) {
-            String CHANNEL_ID = "location_tracking_channel";
+            CHANNEL_ID = "location_tracking_channel";
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                     "My Channel",
                     NotificationManager.IMPORTANCE_DEFAULT);
@@ -168,11 +175,26 @@ public class LocationTrackingService extends Service {
                     .addAction(stopAction)
                     .build();
 
-            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-            notificationManager.notify(1, notification);
-            startForeground(1, notification);
+            notificationManager = NotificationManagerCompat.from(this);
+            notificationManager.notify(FOREGROUND_SERVICE_NOTIFICATION_ID, notification);
+            startForeground(FOREGROUND_SERVICE_NOTIFICATION_ID, notification);
         }
         getLocation();
+    }
+
+    private void stopLocationTracking() {
+        alreadyTracking = false;
+        timeHistory.clear();
+        locationHistory.clear();
+        elapsedDistance = 0;
+        elapsedTime = 0;
+        fusedLocationProviderClient = null;
+        stopForeground(true);
+        stopSelf();
+        if (wakeLock != null) {
+            wakeLock.release();
+            wakeLock = null;
+        }
     }
 
     private void getLocation() {
@@ -216,15 +238,36 @@ public class LocationTrackingService extends Service {
         Log.d(TAG, "elapsed time: " + elapsedTime);
         Log.d(TAG, "elapsed distance: " + elapsedDistance);
 
+        //if the user is within 100 meters of their home, stop service
         if (location.distanceTo(destinationLocation) < 100) {
             Log.d(TAG, "Reached Destination");
             fusedLocationProviderClient.removeLocationUpdates(locationCallback);
             stopLocationTracking();
         }
 
-        if (elapsedTime > maxInactivityTime) {
+        //if no movement is detected during half of the specified time interval, send a warning
+        if ((elapsedTime >= maxInactivityTime / 2) && !displayedWarning) {
+            Log.d(TAG, "Displaying warning message");
+            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_launcher_background)
+                    .setContentTitle("Are you alright?")
+                    .setContentText("We have not detected any significant movement for a while.")
+                    .build();
+            notificationManager.notify(CONFIRMATION_NOTIFICATION_ID, notification);
+
+        }
+
+        //if the specified time interval is exceeded and no still no movement detected, send SMS
+        if (elapsedTime >= maxInactivityTime) {
             if (elapsedDistance < 100) {
                 Log.d(TAG, "Inactivity detected");
+
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_launcher_background)
+                        .setContentTitle("Don't Worry!")
+                        .setContentText("We've reached out to your emergency contact with your location.")
+                        .build();
+                notificationManager.notify(WARNING_NOTIFICATION_ID, notification);
 
                 String locationString = location.getLatitude() + "," + location.getLongitude();
                 int elapsedTimeMin = (int) elapsedTime / 60 / 1000;
@@ -255,23 +298,7 @@ public class LocationTrackingService extends Service {
             elapsedDistance = 0;
             elapsedTime = 0;
         }
-
         timeHistory.add(currentTime);
         locationHistory.add(location);
-    }
-
-    private void stopLocationTracking() {
-        alreadyTracking = false;
-        timeHistory.clear();
-        locationHistory.clear();
-        elapsedDistance = 0;
-        elapsedTime = 0;
-        fusedLocationProviderClient = null;
-        stopForeground(true);
-        stopSelf();
-        if (wakeLock != null) {
-            wakeLock.release();
-            wakeLock = null;
-        }
     }
 }
