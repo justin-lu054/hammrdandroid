@@ -114,7 +114,17 @@ public class LocationTrackingService extends Service {
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy called");
-        stopLocationTracking();
+        alreadyTracking = false;
+        timeHistory.clear();
+        locationHistory.clear();
+        elapsedDistance = 0;
+        elapsedTime = 0;
+        fusedLocationProviderClient = null;
+        stopForeground(true);
+        if (wakeLock != null) {
+            wakeLock.release();
+            wakeLock = null;
+        }
     }
 
     @Override
@@ -142,7 +152,7 @@ public class LocationTrackingService extends Service {
                         called if the service is stopped an restarted within a single lifespan
                         of the app
                      */
-                    fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+                    //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
                     stopLocationTracking();
                 }
             }
@@ -183,18 +193,8 @@ public class LocationTrackingService extends Service {
     }
 
     private void stopLocationTracking() {
-        alreadyTracking = false;
-        timeHistory.clear();
-        locationHistory.clear();
-        elapsedDistance = 0;
-        elapsedTime = 0;
-        fusedLocationProviderClient = null;
-        stopForeground(true);
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         stopSelf();
-        if (wakeLock != null) {
-            wakeLock.release();
-            wakeLock = null;
-        }
     }
 
     private void getLocation() {
@@ -241,7 +241,7 @@ public class LocationTrackingService extends Service {
         //if the user is within 100 meters of their home, stop service
         if (location.distanceTo(destinationLocation) < 100) {
             Log.d(TAG, "Reached Destination");
-            fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+            //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
             stopLocationTracking();
         }
 
