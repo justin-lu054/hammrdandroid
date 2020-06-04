@@ -18,6 +18,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -28,19 +29,21 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.Continuation;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.functions.FirebaseFunctions;
+import com.google.firebase.functions.HttpsCallableResult;
 import com.lujustin.hammrd.R;
-import com.lujustin.hammrd.models.HammrdTwilioData;
-import com.lujustin.hammrd.models.TwilioInterface;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+
 import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 
 public class LocationTrackingService extends Service {
 
@@ -66,9 +69,7 @@ public class LocationTrackingService extends Service {
 
     private NotificationManagerCompat notificationManager;
     private String CHANNEL_ID;
-
-    private Retrofit retrofit;
-    private TwilioInterface twilioInterface;
+    private FirebaseFunctions firebaseFunctions;
 
     private LocationCallback locationCallback;
 
@@ -96,14 +97,9 @@ public class LocationTrackingService extends Service {
         super.onCreate();
         Log.d(TAG, "onCreate");
 
-        retrofit = new Retrofit.Builder().baseUrl("https://hammrdandroidtwilioservice.herokuapp.com/")
-                            .addConverterFactory(GsonConverterFactory.create())
-                            .build();
-        twilioInterface = retrofit.create(TwilioInterface.class);
-
         HandlerThread handlerThread = new HandlerThread(TAG);
         handlerThread.start();
-
+        firebaseFunctions = FirebaseFunctions.getInstance();
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LocationTrackingService::WakeLock");
         wakeLock.acquire();
@@ -147,12 +143,6 @@ public class LocationTrackingService extends Service {
                     startLocationTracking();
                 }
                 if (action.equals(ACTION_STOP_TRACKING)) {
-                    /*
-                        We need to call this here to prevent duplicate location updates from being
-                        called if the service is stopped an restarted within a single lifespan
-                        of the app
-                     */
-                    //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
                     stopLocationTracking();
                 }
             }
@@ -272,26 +262,18 @@ public class LocationTrackingService extends Service {
                 String locationString = location.getLatitude() + "," + location.getLongitude();
                 int elapsedTimeMin = (int) elapsedTime / 60 / 1000;
 
-                HammrdTwilioData hammrdTwilioData = new HammrdTwilioData(userNameText, userNumberText,
-                                                        contactNameText, contactNumberText,
-                                                        locationString, elapsedTimeMin);
-                Call<Void> twilioPostRequest = twilioInterface.sendSMS(hammrdTwilioData);
-                twilioPostRequest.enqueue(new Callback<Void>() {
-                    @Override
-                    public void onResponse(Call<Void> call, Response<Void> response) {
-                        if(!response.isSuccessful()) {
-                            Log.e(TAG, "Error with POST request. Code " + response.code());
-                            return;
-                        }
-                        Log.d(TAG, "Success! Text message sent.");
-                    }
-
-                    @Override
-                    public void onFailure(Call<Void> call, Throwable t) {
-                        Log.e(TAG, "Error with POST request.");
-                        t.printStackTrace();
-                    }
-                });
+                sendSMS(userNameText, userNumberText, contactNameText, contactNumberText, locationString, elapsedTimeMin)
+                        .addOnCompleteListener(new OnCompleteListener<String>() {
+                            @Override
+                            public void onComplete(@NonNull Task<String> task) {
+                                if (!task.isSuccessful()) {
+                                    Exception e = task.getException();
+                                    Log.e(TAG, "Error with POST request: " + e.getMessage());
+                                    return;
+                                }
+                                Log.d(TAG, "Success! Text message sent!");
+                            }
+                        });
             }
             timeHistory.clear();
             locationHistory.clear();
@@ -301,4 +283,28 @@ public class LocationTrackingService extends Service {
         timeHistory.add(currentTime);
         locationHistory.add(location);
     }
+
+    private Task<String> sendSMS(String userNameText, String userNumberText, String contactNameText,
+                                 String contactNumberText, String locationString, int elapsedTimeMin) {
+        Log.d(TAG, userNameText + " " + userNumberText + " " + contactNameText + " " + contactNumberText + " " + locationString + " " + elapsedTimeMin);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userName", userNameText);
+        data.put("userNumber", userNumberText);
+        data.put("contactName", contactNameText);
+        data.put("contactNumber", contactNumberText);
+        data.put("location", locationString);
+        data.put("elapsedTime", elapsedTimeMin);
+
+        return firebaseFunctions
+                .getHttpsCallable("sendSMS")
+                .call(data)
+                .continueWith(new Continuation<HttpsCallableResult, String>() {
+                    @Override
+                    public String then(@NonNull Task<HttpsCallableResult> task) throws Exception {
+                        return null;
+                    }
+                });
+
+    }
+
 }

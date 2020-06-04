@@ -19,4 +19,8 @@ public interface MapsApiInterface {
                                           @Query("origin") String origin,
                                           @Query("destination") String destination);
 
+    @GET("geocode/json")
+    Call<GeocodeResultList> geoCode(@Query("key") String apiKey,
+                                    @Query("address") String address);
+
 }

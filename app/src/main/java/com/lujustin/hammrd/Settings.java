@@ -5,7 +5,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -13,6 +12,7 @@ import android.widget.Toast;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.lujustin.hammrd.adapters.PlaceAutoSuggestAdapter;
+
 
 public class Settings extends AppCompatActivity {
 
@@ -35,6 +35,12 @@ public class Settings extends AppCompatActivity {
 
     private static final String TAG = "SettingsActivity";
 
+    String userNameText;
+    String userNumberText;
+    String contactNameText;
+    String contactNumberText;
+    String addressText;
+    String maxInactivityTimeText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,21 +60,20 @@ public class Settings extends AppCompatActivity {
         saveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeSettings();
+                verifySettings();
             }
         });
 
         loadSettings();
     }
 
-    private void writeSettings() {
-        SharedPreferences.Editor settingsEditor = settingsPref.edit();
-        String userNameText = userNameField.getText().toString();
-        String userNumberText = userNumberField.getText().toString();
-        String contactNameText = contactNameField.getText().toString();
-        String contactNumberText = contactNumberField.getText().toString();
-        String addressText = addressField.getText().toString();
-        String maxInactivityTimeText = maxInactivityTimeField.getText().toString();
+    private void verifySettings() {
+        userNameText = userNameField.getText().toString();
+        userNumberText = userNumberField.getText().toString();
+        contactNameText = contactNameField.getText().toString();
+        contactNumberText = contactNumberField.getText().toString();
+        addressText = addressField.getText().toString();
+        maxInactivityTimeText = maxInactivityTimeField.getText().toString();
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
@@ -93,6 +98,11 @@ public class Settings extends AppCompatActivity {
                     .show();
             return;
         }
+        writeSettings();
+    }
+
+    private void writeSettings() {
+        SharedPreferences.Editor settingsEditor = settingsPref.edit();
 
         //convert the specified maximum inactivity time to miliseconds
         long maxInactivityTimeValue = Integer.parseInt(maxInactivityTimeText) * 60 * 1000;
@@ -107,7 +117,6 @@ public class Settings extends AppCompatActivity {
         Toast.makeText(this, "Settings saved!", Toast.LENGTH_SHORT).show();
         finish();
     }
-
 
     private void loadSettings() {
         String userNameText = settingsPref.getString(userName, "");

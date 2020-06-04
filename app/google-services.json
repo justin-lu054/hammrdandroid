@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "220488096767",
+    "firebase_url": "https://hammrd-e32a2.firebaseio.com",
+    "project_id": "hammrd-e32a2",
+    "storage_bucket": "hammrd-e32a2.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220488096767:android:88b3b206e3c65cff6365ca",
+        "android_client_info": {
+          "package_name": "com.lujustin.hammrd"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "220488096767-u6uamqlfvc4oah6u5bguksao2pofo9p3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lujustin.hammrd",
+            "certificate_hash": "d8776c52c9c4c8b761148fe811b1837bb6b7b243"
+          }
+        },
+        {
+          "client_id": "220488096767-1ms5dko7q5aongae9k6d7suk7ru68b2n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBbxK2I3GuJtt6_uZaxaf-vseYcHoJQrk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "220488096767-1ms5dko7q5aongae9k6d7suk7ru68b2n.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

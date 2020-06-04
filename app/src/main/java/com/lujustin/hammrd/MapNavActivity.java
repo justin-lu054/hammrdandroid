@@ -29,9 +29,12 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.Tasks;
 
+import com.lujustin.hammrd.models.GeocodeResult;
+import com.lujustin.hammrd.models.GeocodeResultList;
 import com.lujustin.hammrd.models.NavDirectionsList;
 import com.lujustin.hammrd.models.NearestOpenRestaurant;
 import com.lujustin.hammrd.models.NearestOpenRestaurantList;
@@ -39,10 +42,14 @@ import com.lujustin.hammrd.models.MapsApiInterface;
 import com.lujustin.hammrd.services.LocationTrackingService;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.core.ObservableSource;
 import io.reactivex.rxjava3.functions.Function;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import retrofit2.Response;
@@ -84,6 +91,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private MapsApiInterface mapsApiInterface;
 
     private List<LatLng> directionCoordinates;
+    private List<LatLng> geoFenceCoordinates = new ArrayList<>();
     private Button navButton;
 
     @Override
@@ -97,7 +105,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         mapsApiInterface = retrofit.create(MapsApiInterface.class);
-        settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
         NAV_MODE = getIntent().getStringExtra("NAV_MODE");
         setContentView(R.layout.activity_get_food);
         checkLocationPermission();
@@ -164,6 +171,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private Observable<List<LatLng>> getWalkingDirections(String apiKey, String originCoords, String destinationCoords) {
         return Observable.create(subscriber -> {
             try {
+                Log.d(TAG, apiKey + " " + originCoords + " " + destinationCoords);
                 Response<NavDirectionsList> response = mapsApiInterface.getDirections(apiKey, originCoords, destinationCoords)
                         .execute();
                 if (!response.isSuccessful()) {
@@ -289,7 +297,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                         loadingActivity.dismissDialog();
                     }, e -> {
                         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                        builder.setTitle("No walking directions found!")
+                        builder.setTitle("Error!")
                                 .setMessage(e.getMessage())
                                 .setCancelable(false)
                                 .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
@@ -301,88 +309,111 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     }
 
     private void initHomeMap() {
-        //validate that settings are filled out, address provided is valid
-        boolean settingsValidated = validateSettings();
-        if (!settingsValidated) {
-            return;
-        }
-        Observable<Location> locationTask = getDeviceLocation();
-        locationTask.subscribeOn(Schedulers.io())
-                    .flatMap(new Function<Location, Observable<List<LatLng>>>() {
-                        @Override
-                        public Observable<List<LatLng>> apply(Location location) throws Throwable {
-                            lastKnownLocation = location;
-                            String userLocationString = lastKnownLocation.getLatitude() + ","
-                                                        + lastKnownLocation.getLongitude();
-                            String homeLocationString = homeLatitude + "," + homeLongitude;
-                            return getWalkingDirections(apiKey, userLocationString, homeLocationString);
-                        }
-                    })
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(result -> {
-                        directionCoordinates = result;
-                        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                                .findFragmentById(R.id.getFoodMap);
-                        if (mapFragment != null) {
-                            mapFragment.getMapAsync(MapNavActivity.this);
-                        }
-                        loadingActivity.dismissDialog();
-                    }, e ->  {
-                        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                        builder.setTitle("No walking directions found!")
-                                .setMessage(e.getMessage())
-                                .setCancelable(false)
-                                .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
-                                .create()
-                                .show();
-                        e.printStackTrace();
-                        return;
-                    });
+        Observable<GeocodeResult> geocodeAddressTask = geocodeAddress();
+
+        geocodeAddressTask
+                .subscribeOn(Schedulers.io())
+                .flatMap(new Function<GeocodeResult, Observable<Location>>() {
+                    @Override
+                    public Observable<Location> apply(GeocodeResult address) throws Throwable {
+                        Log.d(TAG, address.getLatitude() + "," + address.getLongitude());
+                        homeLatitude = address.getLatitude();
+                        homeLongitude = address.getLongitude();
+                        return getDeviceLocation();
+                    }
+                })
+                .flatMap(new Function<Location, Observable<List<LatLng>>>() {
+                    @Override
+                    public Observable<List<LatLng>> apply(Location location) throws Throwable {
+                        lastKnownLocation = location;
+                        String userLocationString = lastKnownLocation.getLatitude() + ","
+                                + lastKnownLocation.getLongitude();
+                        String homeLocationString = homeLatitude + "," + homeLongitude;
+                        return getWalkingDirections(apiKey, userLocationString, homeLocationString);
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> {
+                    directionCoordinates = result;
+                    SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                            .findFragmentById(R.id.getFoodMap);
+                    if (mapFragment != null) {
+                        mapFragment.getMapAsync(MapNavActivity.this);
+                    }
+                    loadingActivity.dismissDialog();
+                }, e -> {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("Error!")
+                            .setMessage(e.getMessage())
+                            .setCancelable(false)
+                            .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                            .create()
+                            .show();
+                    e.printStackTrace();
+                    return;
+                });
     }
 
-    private boolean validateSettings() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        userNameText = settingsPref.getString("userName", "");
-        userNumberText = settingsPref.getString("userNumber", "");
-        contactNameText = settingsPref.getString("contactName", "");
-        contactNumberText = settingsPref.getString("contactNumber", "");
-        address = settingsPref.getString("address", "");
+    private Observable<GeocodeResult> geocodeAddress() {
+        return Observable.create(subscriber -> {
+            settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
+            userNameText = settingsPref.getString("userName", "");
+            userNumberText = settingsPref.getString("userNumber", "");
+            contactNameText = settingsPref.getString("contactName", "");
+            contactNumberText = settingsPref.getString("contactNumber", "");
+            address = settingsPref.getString("address", "");
 
-        if (userNameText.length() == 0
-                || userNumberText.length() == 0
-                || contactNameText.length() == 0
-                || contactNumberText.length() == 0
-                || address.length() == 0) {
-            builder.setTitle("Looks like you're missing something!")
-                    .setMessage("Please fill out all the settings first.")
-                    .setCancelable(false)
-                    .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
-                    .create()
-                    .show();
-            return false;
-        }
+            if (userNameText.length() == 0
+                    || userNumberText.length() == 0
+                    || contactNameText.length() == 0
+                    || contactNumberText.length() == 0
+                    || address.length() == 0) {
+                Throwable emptySettingsThrowable = new Throwable("Please fill out all the settings first.");
+                subscriber.onError(emptySettingsThrowable);
+                return;
+            }
+            Response<GeocodeResultList> response = mapsApiInterface.geoCode(apiKey, address)
+                    .execute();
 
-        Geocoder geocoder = new Geocoder(this);
-        try {
-            List<Address> results = geocoder.getFromLocationName(address, 1);
-            if (results.size() > 0) {
-                homeLatitude = results.get(0).getLatitude();
-                homeLongitude = results.get(0).getLongitude();
+            if (!response.isSuccessful()) {
+                Throwable geocodeErrorThrowable = new Throwable("ERROR! RESPONSE CODE " + response.code());
+                subscriber.onError(geocodeErrorThrowable);
+                return;
             }
-            else {
-                builder.setTitle("Invalid address detected!")
-                        .setMessage("Please provide a valid address in settings.")
-                        .setCancelable(false)
-                        .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
-                        .create()
-                        .show();
-                return false;
+
+            GeocodeResultList geocodeResultList = response.body();
+            if (geocodeResultList.getResults().size() == 0) {
+                Throwable noResultsThrowable = new Throwable("Invalid address detected.");
+                subscriber.onError(noResultsThrowable);
+                return;
             }
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
-        return true;
+
+            subscriber.onNext(geocodeResultList.getResults().get(0));
+
+
+            /*
+            Geocoder geocoder = new Geocoder(this);
+            try {
+                List<Address> results = geocoder.getFromLocationName(address, 5);
+                Log.d("TAG", "" + results.size());
+                if (results.size() > 0) {
+                    subscriber.onNext(results.get(0));
+                }
+                else {
+                    Throwable invalidAddressThrowable = new Throwable("Invalid address detected.");
+                    subscriber.onError(invalidAddressThrowable);
+                    return;
+                }
+            }
+            catch (IOException e) {
+                Throwable geocoderErrorThrowable = new Throwable(e.getMessage());
+                subscriber.onError(geocoderErrorThrowable);
+                e.printStackTrace();
+                return;
+            }
+
+             */
+        });
     }
 
     /**

@@ -2,14 +2,12 @@ package com.lujustin.hammrd.models;
 
 import com.google.gson.annotations.SerializedName;
 
-public class NearestOpenRestaurant {
-    private String name;
-
+public class GeocodeResult {
     @SerializedName("geometry")
     private Geometry geometry;
 
-    public NearestOpenRestaurant(String name) {
-        this.name = name;
+    public GeocodeResult(Geometry geometry) {
+        this.geometry = geometry;
     }
 
     public double getLatitude() {
@@ -18,9 +16,5 @@ public class NearestOpenRestaurant {
 
     public double getLongitude() {
         return this.geometry.location.longitude;
-    }
-
-    public String getName() {
-        return name;
     }
 }
