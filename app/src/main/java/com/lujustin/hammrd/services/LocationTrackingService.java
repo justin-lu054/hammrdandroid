@@ -168,7 +168,7 @@ public class LocationTrackingService extends Service {
                     "Stop Tracking", pendingStopIntent);
 
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_launcher_background)
+                    .setSmallIcon(R.drawable.appicon)
                     .setContentTitle("Tracking your location")
                     .setContentText("We're doing this to keep you safe!")
                     .setOngoing(true)
@@ -238,7 +238,7 @@ public class LocationTrackingService extends Service {
         if ((elapsedTime >= maxInactivityTime / 2) && !displayedWarning) {
             Log.d(TAG, "Displaying warning message");
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_launcher_background)
+                    .setSmallIcon(R.drawable.appicon)
                     .setContentTitle("Are you alright?")
                     .setContentText("We have not detected any significant movement for a while.")
                     .build();
@@ -252,7 +252,7 @@ public class LocationTrackingService extends Service {
                 Log.d(TAG, "Inactivity detected");
 
                 Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_launcher_background)
+                        .setSmallIcon(R.drawable.appicon)
                         .setContentTitle("Don't Worry!")
                         .setContentText("We've reached out to your emergency contact with your location.")
                         .build();
