@@ -390,29 +390,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
 
             subscriber.onNext(geocodeResultList.getResults().get(0));
 
-
-            /*
-            Geocoder geocoder = new Geocoder(this);
-            try {
-                List<Address> results = geocoder.getFromLocationName(address, 5);
-                Log.d("TAG", "" + results.size());
-                if (results.size() > 0) {
-                    subscriber.onNext(results.get(0));
-                }
-                else {
-                    Throwable invalidAddressThrowable = new Throwable("Invalid address detected.");
-                    subscriber.onError(invalidAddressThrowable);
-                    return;
-                }
-            }
-            catch (IOException e) {
-                Throwable geocoderErrorThrowable = new Throwable(e.getMessage());
-                subscriber.onError(geocoderErrorThrowable);
-                e.printStackTrace();
-                return;
-            }
-
-             */
         });
     }
 

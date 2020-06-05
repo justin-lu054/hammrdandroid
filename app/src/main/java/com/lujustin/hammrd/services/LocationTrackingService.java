@@ -231,7 +231,6 @@ public class LocationTrackingService extends Service {
         //if the user is within 100 meters of their home, stop service
         if (location.distanceTo(destinationLocation) < 100) {
             Log.d(TAG, "Reached Destination");
-            //fusedLocationProviderClient.removeLocationUpdates(locationCallback);
             stopLocationTracking();
         }
 
@@ -244,7 +243,7 @@ public class LocationTrackingService extends Service {
                     .setContentText("We have not detected any significant movement for a while.")
                     .build();
             notificationManager.notify(CONFIRMATION_NOTIFICATION_ID, notification);
-
+            displayedWarning = true;
         }
 
         //if the specified time interval is exceeded and no still no movement detected, send SMS
