@@ -124,7 +124,7 @@ public class Settings extends AppCompatActivity {
         String contactNameText = settingsPref.getString(contactName, "");
         String contactNumberText = settingsPref.getString(contactNumber, "");
         String addressText = settingsPref.getString(address, "");
-        long maxInactivityTimeValue = settingsPref.getLong(maxInactivityTime, 30);
+        long maxInactivityTimeValue = settingsPref.getLong(maxInactivityTime, 30 * 60 * 1000);
 
         userNameField.setText(userNameText);
         userNumberField.setText(userNumberText.replace("+1", ""));

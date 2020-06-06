@@ -145,8 +145,7 @@
                 android:layout_marginTop="100dp"
                 android:maxLength="100"
                 android:maxLines="1"
-                android:inputType="text"
-                android:dropDownHeight="100dp"/>
+                android:inputType="text"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <View

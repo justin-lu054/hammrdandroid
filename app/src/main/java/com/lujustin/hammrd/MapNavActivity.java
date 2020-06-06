@@ -90,8 +90,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        loadingActivity = new LoadingActivity(this);
-        loadingActivity.startLoadingDialog();
         apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         retrofit = new Retrofit.Builder().baseUrl("https://maps.googleapis.com/maps/api/")
@@ -242,7 +240,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     public void initMap() {
         navButton = findViewById(R.id.navigateButton);
         switch(NAV_MODE) {
-            case "MapNavActivity":
+            case "GetFood":
                 navButton.setText("Take me to food!");
                 initFoodMap();
                 break;
@@ -254,40 +252,43 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     }
 
     private void initFoodMap() {
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
         Observable<Location> locationTask = getDeviceLocation();
-        locationTask.subscribeOn(Schedulers.io())
-                    .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
-                        @Override
-                        public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
-                            lastKnownLocation = userLocation;
-                            String latlngString = userLocation.getLatitude() + ","
-                                    + userLocation.getLongitude();
-                            return getNearestRestaurant(apiKey, latlngString);
-                        }
-                    })
-                    .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
-                        @Override
-                        public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
-                            restaurant = nearestOpenRestaurantList.getList().get(0);
+        locationTask
+                .subscribeOn(Schedulers.io())
+                .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
+                    @Override
+                    public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
+                        lastKnownLocation = userLocation;
+                        String latlngString = userLocation.getLatitude() + ","
+                                + userLocation.getLongitude();
+                        return getNearestRestaurant(apiKey, latlngString);
+                    }
+                })
+                .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
+                    @Override
+                    public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
+                        restaurant = nearestOpenRestaurantList.getList().get(0);
 
-                            String userLocationString = lastKnownLocation.getLatitude() + ","
-                                                        + lastKnownLocation.getLongitude();
+                        String userLocationString = lastKnownLocation.getLatitude() + ","
+                                                + lastKnownLocation.getLongitude();
 
-                            String restaurantLocationString = restaurant.getLatitude() + ","
-                                                            + restaurant.getLongitude();
+                        String restaurantLocationString = restaurant.getLatitude() + ","
+                                + restaurant.getLongitude();
 
-                            return getWalkingDirections(apiKey, userLocationString, restaurantLocationString);
-                        }
-                    })
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(result -> {
-                        directionCoordinates = result;
-                        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                                .findFragmentById(R.id.getFoodMap);
-                        if (mapFragment != null) {
-                            mapFragment.getMapAsync(MapNavActivity.this);
-                        }
-                        loadingActivity.dismissDialog();
+                        return getWalkingDirections(apiKey, userLocationString, restaurantLocationString);
+                    }
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(result -> {
+                    directionCoordinates = result;
+                    SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                            .findFragmentById(R.id.getFoodMap);
+                    if (mapFragment != null) {
+                        mapFragment.getMapAsync(MapNavActivity.this);
+                    }
+                    loadingActivity.dismissDialog();
                     }, e -> {
                         AlertDialog.Builder builder = new AlertDialog.Builder(this);
                         builder.setTitle("Error!")
@@ -302,8 +303,9 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     }
 
     private void initHomeMap() {
+        loadingActivity = new LoadingActivity(this);
+        loadingActivity.startLoadingDialog();
         Observable<GeocodeResult> geocodeAddressTask = geocodeAddress();
-
         geocodeAddressTask
                 .subscribeOn(Schedulers.io())
                 .flatMap(new Function<GeocodeResult, Observable<Location>>() {
@@ -421,7 +423,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     startActivity(navIntent);
                 });
                 break;
-            case "MapNavActivity":
+            case "GetFood":
                 LatLng nearestRestaurantLatLng = new LatLng(restaurant.getLatitude(), restaurant.getLongitude());
                 MarkerOptions restaurauntMarkerOptions = new MarkerOptions()
                                                         .position(nearestRestaurantLatLng)

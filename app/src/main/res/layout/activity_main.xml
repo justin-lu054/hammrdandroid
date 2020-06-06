@@ -24,7 +24,7 @@
         android:textSize="35dp"
         android:textColor="#a6a6a6"
         android:fontFamily="sans-serif-medium"
-        android:text="You must be faded asf to use this app...."></TextView>
+        android:text="Relax, and let us take you home"></TextView>
 
     <android.widget.Button
         android:id="@+id/homeButton"
