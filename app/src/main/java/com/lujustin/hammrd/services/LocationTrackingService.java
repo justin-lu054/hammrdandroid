@@ -56,6 +56,7 @@ public class LocationTrackingService extends Service {
     private final static int FOREGROUND_SERVICE_NOTIFICATION_ID = 1;
     private final static int WARNING_NOTIFICATION_ID = 2;
     private final static int CONFIRMATION_NOTIFICATION_ID = 3;
+    private final static int ARRIVED_HOME_NOTIFICATION_ID = 4;
 
     private FusedLocationProviderClient fusedLocationProviderClient;
     private PowerManager.WakeLock wakeLock;
@@ -231,6 +232,12 @@ public class LocationTrackingService extends Service {
         //if the user is within 100 meters of their home, stop service
         if (location.distanceTo(destinationLocation) < 100) {
             Log.d(TAG, "Reached Destination");
+            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.appicon)
+                    .setContentTitle("Welcome home!")
+                    .setContentText("Glad to see you're home. We've stopped the location tracking service for you.")
+                    .build();
+            notificationManager.notify(ARRIVED_HOME_NOTIFICATION_ID, notification);
             stopLocationTracking();
         }
 
