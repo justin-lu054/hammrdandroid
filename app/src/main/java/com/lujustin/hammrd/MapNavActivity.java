@@ -103,8 +103,12 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
 
     private void startLocationTracker() {
         Intent serviceIntent = new Intent(this, LocationTrackingService.class);
-        serviceIntent.putExtra("destinationLatitude", homeLatitude);
-        serviceIntent.putExtra("destinationLongitude", homeLongitude);
+
+        double destinationLatitude = (NAV_MODE.equals("GetHome")) ?  homeLatitude : restaurant.getLatitude();
+        double destinationLongitude = (NAV_MODE.equals("GetHome")) ? homeLongitude : restaurant.getLongitude();
+
+        serviceIntent.putExtra("destinationLatitude", destinationLatitude);
+        serviceIntent.putExtra("destinationLongitude", destinationLongitude);
         serviceIntent.putExtra("userName", userNameText);
         serviceIntent.putExtra("userNumber", userNumberText);
         serviceIntent.putExtra("contactName", contactNameText);
@@ -138,7 +142,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         });
     }
 
-    private Observable<NearestOpenRestaurantList> getNearestRestaurant(String apiKey, String latlngString) {
+    private Observable<NearestOpenRestaurant> getNearestRestaurant(String apiKey, String latlngString) {
         return Observable.create(subscriber -> {
             try {
                 Response<NearestOpenRestaurantList> response = mapsApiInterface.getNearestOpenRestaurant(apiKey, latlngString)
@@ -150,7 +154,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     return;
                 }
                 NearestOpenRestaurantList nearestOpenRestaurants = response.body();
-                subscriber.onNext(nearestOpenRestaurants);
+                subscriber.onNext(nearestOpenRestaurants.getList().get(0));
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -254,23 +258,28 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private void initFoodMap() {
         loadingActivity = new LoadingActivity(this);
         loadingActivity.startLoadingDialog();
-        Observable<Location> locationTask = getDeviceLocation();
-        locationTask
+        Observable<Boolean> verifySettingsTask = verifySettings();
+        verifySettingsTask
                 .subscribeOn(Schedulers.io())
-                .flatMap(new Function<Location, Observable<NearestOpenRestaurantList>>() {
+                .flatMap(new Function<Boolean, Observable<Location>>() {
                     @Override
-                    public Observable<NearestOpenRestaurantList> apply(Location userLocation) throws Throwable {
+                    public Observable<Location> apply(Boolean bool) throws Throwable {
+                        return getDeviceLocation();
+                    }
+                })
+                .flatMap(new Function<Location, Observable<NearestOpenRestaurant>>() {
+                    @Override
+                    public Observable<NearestOpenRestaurant> apply(Location userLocation) throws Throwable {
                         lastKnownLocation = userLocation;
                         String latlngString = userLocation.getLatitude() + ","
                                 + userLocation.getLongitude();
                         return getNearestRestaurant(apiKey, latlngString);
                     }
                 })
-                .flatMap(new Function<NearestOpenRestaurantList, Observable<List<LatLng>>>() {
+                .flatMap(new Function<NearestOpenRestaurant, Observable<List<LatLng>>>() {
                     @Override
-                    public Observable<List<LatLng>> apply(NearestOpenRestaurantList nearestOpenRestaurantList) throws Throwable {
-                        restaurant = nearestOpenRestaurantList.getList().get(0);
-
+                    public Observable<List<LatLng>> apply(NearestOpenRestaurant nearestOpenRestaurant) throws Throwable {
+                        restaurant = nearestOpenRestaurant;
                         String userLocationString = lastKnownLocation.getLatitude() + ","
                                                 + lastKnownLocation.getLongitude();
 
@@ -305,9 +314,16 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private void initHomeMap() {
         loadingActivity = new LoadingActivity(this);
         loadingActivity.startLoadingDialog();
-        Observable<GeocodeResult> geocodeAddressTask = geocodeAddress();
-        geocodeAddressTask
+        Observable<Boolean> verifySettingsTask = verifySettings();
+        verifySettingsTask
                 .subscribeOn(Schedulers.io())
+                .flatMap(new Function<Boolean, Observable<GeocodeResult>>() {
+                    @Override
+                    public Observable<GeocodeResult> apply(Boolean bool) throws Throwable {
+                        Log.d(TAG, "flatmap");
+                        return geocodeAddress();
+                    }
+                })
                 .flatMap(new Function<GeocodeResult, Observable<Location>>() {
                     @Override
                     public Observable<Location> apply(GeocodeResult address) throws Throwable {
@@ -349,7 +365,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 });
     }
 
-    private Observable<GeocodeResult> geocodeAddress() {
+    private Observable<Boolean> verifySettings() {
         return Observable.create(subscriber -> {
             settingsPref = getSharedPreferences(preferenceName, Context.MODE_PRIVATE);
             userNameText = settingsPref.getString("userName", "");
@@ -367,6 +383,12 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 subscriber.onError(emptySettingsThrowable);
                 return;
             }
+            subscriber.onNext(true);
+        });
+    }
+
+    private Observable<GeocodeResult> geocodeAddress() {
+        return Observable.create(subscriber -> {
             Response<GeocodeResultList> response = mapsApiInterface.geoCode(apiKey, address)
                     .execute();
 
@@ -395,6 +417,13 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         loadingActivity.dismissDialog();
         finish();
     }
+
+
+    @Override
+    public void onBackPressed() {
+        stopLoadingAndFinish();
+    }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -431,6 +460,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 mMap.addMarker(restaurauntMarkerOptions);
                 destinationString = restaurant.getLatitude() + "," + restaurant.getLongitude();
                 navButton.setOnClickListener(v -> {
+                    startLocationTracker();
                     Uri navUri = Uri.parse(String.format("google.navigation:q=%s&mode=w", destinationString));
                     Intent navIntent = new Intent(Intent.ACTION_VIEW, navUri);
                     navIntent.setPackage("com.google.android.apps.maps");

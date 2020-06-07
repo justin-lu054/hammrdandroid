@@ -4,7 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_margin="20dp"
+    android:layout_marginBottom="15dp"
+    android:layout_marginRight="15dp"
+    android:layout_marginLeft="15dp"
+    android:layout_marginTop="5dp"
     tools:context=".WelcomeActivity">
 
     <TextView
@@ -86,7 +89,7 @@ This software is provided under the MIT license, as-is. Hammrd assumes no respon
         android:id="@+id/getStartedButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="10dp"
         android:text="Get started"
         android:textSize="20dp"
         android:fontFamily="sans-serif-light"
