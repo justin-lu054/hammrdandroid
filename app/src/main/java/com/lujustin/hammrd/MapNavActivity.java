@@ -72,8 +72,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private String contactNameText;
     private String contactNumberText;
     private String address;
-    private double homeLatitude;
-    private double homeLongitude;
+    private Location homeLocation;
     private final String ACTION_START_TRACKING = "ACTION_START_TRACKING";
     private String NAV_MODE;
 
@@ -104,8 +103,8 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private void startLocationTracker() {
         Intent serviceIntent = new Intent(this, LocationTrackingService.class);
 
-        double destinationLatitude = (NAV_MODE.equals("GetHome")) ?  homeLatitude : restaurant.getLatitude();
-        double destinationLongitude = (NAV_MODE.equals("GetHome")) ? homeLongitude : restaurant.getLongitude();
+        double destinationLatitude = (NAV_MODE.equals("GetHome")) ?  homeLocation.getLatitude() : restaurant.getLatitude();
+        double destinationLongitude = (NAV_MODE.equals("GetHome")) ? homeLocation.getLongitude() : restaurant.getLongitude();
 
         serviceIntent.putExtra("destinationLatitude", destinationLatitude);
         serviceIntent.putExtra("destinationLongitude", destinationLongitude);
@@ -317,19 +316,17 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         Observable<Boolean> verifySettingsTask = verifySettings();
         verifySettingsTask
                 .subscribeOn(Schedulers.io())
-                .flatMap(new Function<Boolean, Observable<GeocodeResult>>() {
+                .flatMap(new Function<Boolean, Observable<Location>>() {
                     @Override
-                    public Observable<GeocodeResult> apply(Boolean bool) throws Throwable {
+                    public Observable<Location> apply(Boolean bool) throws Throwable {
                         Log.d(TAG, "flatmap");
                         return geocodeAddress();
                     }
                 })
-                .flatMap(new Function<GeocodeResult, Observable<Location>>() {
+                .flatMap(new Function<Location, Observable<Location>>() {
                     @Override
-                    public Observable<Location> apply(GeocodeResult address) throws Throwable {
-                        Log.d(TAG, address.getLatitude() + "," + address.getLongitude());
-                        homeLatitude = address.getLatitude();
-                        homeLongitude = address.getLongitude();
+                    public Observable<Location> apply(Location location) throws Throwable {
+                        homeLocation = location;
                         return getDeviceLocation();
                     }
                 })
@@ -339,7 +336,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                         lastKnownLocation = location;
                         String userLocationString = lastKnownLocation.getLatitude() + ","
                                 + lastKnownLocation.getLongitude();
-                        String homeLocationString = homeLatitude + "," + homeLongitude;
+                        String homeLocationString = homeLocation.getLatitude() + "," + homeLocation.getLongitude();
                         return getWalkingDirections(apiKey, userLocationString, homeLocationString);
                     }
                 })
@@ -387,7 +384,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         });
     }
 
-    private Observable<GeocodeResult> geocodeAddress() {
+    private Observable<Location> geocodeAddress() {
         return Observable.create(subscriber -> {
             Response<GeocodeResultList> response = mapsApiInterface.geoCode(apiKey, address)
                     .execute();
@@ -404,8 +401,11 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 subscriber.onError(noResultsThrowable);
                 return;
             }
+            Location homeLocation = new Location("");
+            homeLocation.setLatitude(geocodeResultList.getResults().get(0).getLatitude());
+            homeLocation.setLongitude(geocodeResultList.getResults().get(0).getLongitude());
 
-            subscriber.onNext(geocodeResultList.getResults().get(0));
+            subscriber.onNext(homeLocation);
 
         });
     }
@@ -438,12 +438,12 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         String destinationString;
         switch (NAV_MODE) {
             case "GetHome":
-                LatLng homeLatLng = new LatLng(homeLatitude, homeLongitude);
+                LatLng homeLatLng = new LatLng(homeLocation.getLatitude(), homeLocation.getLongitude());
                 MarkerOptions homeMarkerOptions = new MarkerOptions()
                                                     .position(homeLatLng)
                                                     .title(address);
                 mMap.addMarker(homeMarkerOptions);
-                destinationString = homeLatitude + "," + homeLongitude;
+                destinationString = homeLocation.getLatitude() + "," + homeLocation.getLongitude();
                 navButton.setOnClickListener(v -> {
                     startLocationTracker();
                     Uri navUri = Uri.parse(String.format("google.navigation:q=%s&mode=w", destinationString));
