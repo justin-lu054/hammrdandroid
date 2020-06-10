@@ -97,8 +97,24 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         mapsApiInterface = retrofit.create(MapsApiInterface.class);
         NAV_MODE = getIntent().getStringExtra("NAV_MODE");
         setContentView(R.layout.activity_get_food);
+        setButtonText();
         checkLocationPermission();
     }
+
+    private void setButtonText() {
+        navButton = findViewById(R.id.navigateButton);
+        switch(NAV_MODE) {
+            case("GetHome"): {
+                navButton.setText("Take me home!");
+                break;
+            }
+            case("GetFood") : {
+                navButton.setText("Take me to food!");
+                break;
+            }
+        }
+    }
+
 
     private void startLocationTracker() {
         Intent serviceIntent = new Intent(this, LocationTrackingService.class);
@@ -241,14 +257,11 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     }
 
     public void initMap() {
-        navButton = findViewById(R.id.navigateButton);
         switch(NAV_MODE) {
             case "GetFood":
-                navButton.setText("Take me to food!");
                 initFoodMap();
                 break;
             case "GetHome":
-                navButton.setText("Take me home!");
                 initHomeMap();
                 break;
         }
