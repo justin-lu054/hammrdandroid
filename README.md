@@ -4,7 +4,7 @@ Picture this, it's 4 am, you stumble out of the bar absolutely shit-faced. You n
 
 #### OLD VERSION OF APPLICATION (cross platform) CAN BE FOUND [HERE](https://github.com/justin-lu054/hammrd) ####
 
-###[Download Here](https://github.com/justin-lu054/hammrdandroid/releases)###
+[Download Here](https://github.com/justin-lu054/hammrdandroid/releases)
 
 |----------|----------|
 |----------|----------|
