@@ -222,7 +222,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     builder.setTitle("Location permissions required")
                             .setMessage("Location permissions are required for this feature to work.")
                             .setCancelable(false)
-                            .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                            .setPositiveButton("OK", (dialog, which) -> finish())
                             .create()
                             .show();
                 }
@@ -232,7 +232,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 builder.setTitle("Location permissions required")
                         .setMessage("Location permissions are required for this feature to work.")
                         .setCancelable(false)
-                        .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                        .setPositiveButton("OK", (dialog, which) -> finish())
                         .create()
                         .show();
             }
