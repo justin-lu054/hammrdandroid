@@ -30,7 +30,6 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.Tasks;
 
-import com.lujustin.hammrd.models.GeocodeResult;
 import com.lujustin.hammrd.models.GeocodeResultList;
 import com.lujustin.hammrd.models.NavDirectionsList;
 import com.lujustin.hammrd.models.NearestOpenRestaurant;
@@ -57,6 +56,8 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private FusedLocationProviderClient fusedLocationProviderClient;
     private Location lastKnownLocation;
 
+    private static boolean activityActive = false;
+
     //store location in activity state
     private static final String TAG = "MapNavActivity";
     private static final int DEFAULT_ZOOM = 14;
@@ -73,21 +74,23 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private String contactNumberText;
     private String address;
     private Location homeLocation;
-    private final String ACTION_START_TRACKING = "ACTION_START_TRACKING";
+    private static final String ACTION_START_TRACKING = "ACTION_START_TRACKING";
     private String NAV_MODE;
 
     private LoadingActivity loadingActivity;
-    private NearestOpenRestaurant restaurant;
+    private AlertDialog errorDialog;
 
     private Retrofit retrofit;
     private MapsApiInterface mapsApiInterface;
 
+    private NearestOpenRestaurant restaurant;
     private List<LatLng> directionCoordinates;
     private List<LatLng> geoFenceCoordinates = new ArrayList<>();
     private Button navButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        activityActive = true;
         super.onCreate(savedInstanceState);
         apiKey = getString(R.string.GOOGLE_API_KEY);
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
@@ -99,6 +102,13 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
         setContentView(R.layout.activity_get_food);
         setButtonText();
         checkLocationPermission();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        activityActive = false;
+        stopLoadingAndFinish();
     }
 
     private void setButtonText() {
@@ -114,7 +124,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
             }
         }
     }
-
 
     private void startLocationTracker() {
         Intent serviceIntent = new Intent(this, LocationTrackingService.class);
@@ -181,7 +190,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
     private Observable<List<LatLng>> getWalkingDirections(String apiKey, String originCoords, String destinationCoords) {
         return Observable.create(subscriber -> {
             try {
-                Log.d(TAG, apiKey + " " + originCoords + " " + destinationCoords);
                 Response<NavDirectionsList> response = mapsApiInterface.getDirections(apiKey, originCoords, destinationCoords)
                         .execute();
                 if (!response.isSuccessful()) {
@@ -226,7 +234,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         locationPermissionGranted = false;
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
         switch(requestCode) {
             case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION : {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -235,22 +242,14 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 }
                 //can't just use request code to check... you need to check the specific permission as well!
                 else {
-                    builder.setTitle("Location permissions required")
-                            .setMessage("Location permissions are required for this feature to work.")
-                            .setCancelable(false)
-                            .setPositiveButton("OK", (dialog, which) -> finish())
-                            .create()
-                            .show();
+                    showErrorDialog("Location permissions required!",
+                            "Location permissions are required for this feature to work.");
                 }
             }
             break;
             case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION_DENIED : {
-                builder.setTitle("Location permissions required")
-                        .setMessage("Location permissions are required for this feature to work.")
-                        .setCancelable(false)
-                        .setPositiveButton("OK", (dialog, which) -> finish())
-                        .create()
-                        .show();
+                showErrorDialog("Location permissions required!",
+                        "Location permissions are required for this feature to work.");
             }
             break;
         }
@@ -265,6 +264,24 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 initHomeMap();
                 break;
         }
+    }
+
+    private void showErrorDialog(String title, String message) {
+        //don't attempt to show an error dialog if the activity has been stopped
+        if (!activityActive) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        errorDialog = builder.setTitle(title)
+                .setMessage(message)
+                .setCancelable(true)
+                .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
+                .setOnCancelListener(dialog -> {
+                    dialog.dismiss();
+                    stopLoadingAndFinish();
+                })
+                .create();
+        errorDialog.show();
     }
 
     private void initFoodMap() {
@@ -311,13 +328,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     }
                     loadingActivity.dismissDialog();
                     }, e -> {
-                        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                        builder.setTitle("Error!")
-                                .setMessage(e.getMessage())
-                                .setCancelable(false)
-                                .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
-                                .create()
-                                .show();
+                        showErrorDialog("Error!", e.getMessage());
                         e.printStackTrace();
                         return;
                     });
@@ -332,7 +343,6 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                 .flatMap(new Function<Boolean, Observable<Location>>() {
                     @Override
                     public Observable<Location> apply(Boolean bool) throws Throwable {
-                        Log.d(TAG, "flatmap");
                         return geocodeAddress();
                     }
                 })
@@ -363,13 +373,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     }
                     loadingActivity.dismissDialog();
                 }, e -> {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setTitle("Error!")
-                            .setMessage(e.getMessage())
-                            .setCancelable(false)
-                            .setPositiveButton("OK", (dialog, which) -> stopLoadingAndFinish())
-                            .create()
-                            .show();
+                    showErrorDialog("Error!", e.getMessage());
                     e.printStackTrace();
                     return;
                 });
@@ -427,16 +431,15 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
      * Function that closes the loading dialog before finishing activity to stop memory leaks
      */
     private void stopLoadingAndFinish() {
-        loadingActivity.dismissDialog();
+        if (loadingActivity != null) {
+            loadingActivity.dismissDialog();
+        }
+        if (errorDialog != null) {
+            errorDialog.dismiss();
+            errorDialog.cancel();
+        }
         finish();
     }
-
-
-    @Override
-    public void onBackPressed() {
-        stopLoadingAndFinish();
-    }
-
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
