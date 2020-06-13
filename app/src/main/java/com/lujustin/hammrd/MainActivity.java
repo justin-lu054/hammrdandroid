@@ -15,7 +15,6 @@ public class MainActivity extends AppCompatActivity {
     private Button getHomeButton;
     private Button getFoodButton;
     private Button settingsButton;
-    private SharedPreferences sharedPreferences;
     private static final String FIRST_TIME_INDICATOR = "FIRST_TIME_INDICATOR";
     private static final String NAV_MODE = "NAV_MODE";
     private static final String NAV_MODE_GETHOME = "GetHome";
@@ -23,10 +22,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        if (!sharedPreferences.getBoolean(FIRST_TIME_INDICATOR, false)) {
-            openFirstTimeActivity();
-        }
+        checkFirstTimeActivity();
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -55,6 +51,19 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    @Override
+    protected void onResume() {
+        checkFirstTimeActivity();
+        super.onResume();
+    }
+
+    public void checkFirstTimeActivity() {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if (!sharedPreferences.getBoolean(FIRST_TIME_INDICATOR, false)) {
+            openFirstTimeActivity();
+        }
     }
 
     public void openFirstTimeActivity() {
