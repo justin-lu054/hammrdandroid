@@ -6,6 +6,7 @@ import androidx.preference.PreferenceManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
@@ -22,7 +23,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        checkFirstTimeActivity();
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onResume() {
+        Log.d("MainActivity", "onResume called");
         checkFirstTimeActivity();
         super.onResume();
     }
@@ -62,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
     public void checkFirstTimeActivity() {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         if (!sharedPreferences.getBoolean(FIRST_TIME_INDICATOR, false)) {
+            Log.d("MainActivity", "launching first time activity");
             openFirstTimeActivity();
         }
     }

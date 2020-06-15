@@ -27,6 +27,7 @@ public class LoadingActivity {
                     }
                 });
         dialog = builder.create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
     }
 

@@ -281,6 +281,7 @@ public class MapNavActivity extends FragmentActivity implements OnMapReadyCallba
                     stopLoadingAndFinish();
                 })
                 .create();
+        errorDialog.setCanceledOnTouchOutside(false);
         errorDialog.show();
     }
 
