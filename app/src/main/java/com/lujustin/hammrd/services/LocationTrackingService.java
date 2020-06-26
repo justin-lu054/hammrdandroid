@@ -42,9 +42,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-
-import retrofit2.Retrofit;
-
 public class LocationTrackingService extends Service {
 
     private static final String TAG = "LocationTrackingService";
