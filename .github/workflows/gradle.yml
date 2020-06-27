@@ -18,7 +18,7 @@ jobs:
     - name: Decrypt large secret
       run: sh ./.github/scripts/decrypt_secret.sh
       env:
-      LARGE_SECRET_PASSWORD: ${{ secrets.LARGE_SECRET_PASSWORD}}
+        LARGE_SECRET_PASSWORD: ${{ secrets.LARGE_SECRET_PASSWORD}}
     - name: Test Print
       run: cat ./app/google-services.json
     - uses: actions/checkout@v2
