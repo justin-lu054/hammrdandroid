@@ -14,14 +14,14 @@ jobs:
     name: Decrypt Large Secrets
     runs-on: ubuntu-latest
     steps:
-      -uses: actions/checkout@v2
-      -name: Decrypt large secret
+      - uses: actions/checkout@v2
+      - name: Decrypt large secret
         run: ./.github/scripts/decrypt_secret.sh
         env:
           LARGE_SECRET_PASSWORD: ${{ secrets.LARGE_SECRET_PASSWORD}}
-      -name: Test Print
+      - name: Test Print
         run: cat ./app/google-services.json
-  
+
   build:
     runs-on: ubuntu-latest
 
