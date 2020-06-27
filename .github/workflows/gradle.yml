@@ -16,7 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Decrypt large secret
-        run: ./.github/scripts/decrypt_secret.sh
+        run: bash decrypt_secret.sh
+        working-directory: ./.github/scripts
         env:
           LARGE_SECRET_PASSWORD: ${{ secrets.LARGE_SECRET_PASSWORD}}
       - name: Test Print
